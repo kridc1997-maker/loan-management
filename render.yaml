@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: loan-management
+    runtime: node
+    rootDir: .
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install && npm run build
+    startCommand: cd backend && npm run migrate:prod && node dist/app.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: DB_HOST
+        fromDatabase:
+          name: loan-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: loan-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: loan-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: loan-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: loan-db
+          property: password
+
+databases:
+  - name: loan-db
+    databaseName: loan_management
+    user: loan_user
+    plan: free

@@ -9,6 +9,7 @@
     "start": "node dist/app.js",
     "migrate": "knex --knexfile src/db/knexfile.ts migrate:latest",
     "migrate:rollback": "knex --knexfile src/db/knexfile.ts migrate:rollback",
+    "migrate:prod": "NODE_ENV=production knex --knexfile dist/db/knexfile.js migrate:latest",
     "seed": "knex --knexfile src/db/knexfile.ts seed:run"
   },
   "dependencies": {
