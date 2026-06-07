@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Noto Sans Thai', 'Sarabun', sans-serif;
+    background-color: #f0f4f8;
+    color: #1e293b;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5;
+  }
+
+  /* KFL Blue primary button */
+  .btn-primary {
+    @apply text-white font-medium px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-2 text-sm shadow-sm;
+    background: linear-gradient(135deg, #1565C0 0%, #1976D2 100%);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #0D47A1 0%, #1565C0 100%);
+    @apply shadow-md;
+  }
+  .btn-primary:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-4 py-2 rounded-lg border border-gray-200 transition-colors duration-150 flex items-center gap-2 text-sm;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150 flex items-center gap-2 text-sm;
+  }
+
+  /* KFL orange accent button */
+  .btn-accent {
+    @apply text-white font-medium px-4 py-2 rounded-lg transition-all duration-150 flex items-center gap-2 text-sm;
+    background: linear-gradient(135deg, #E64A19 0%, #F4511E 100%);
+  }
+  .btn-accent:hover {
+    background: linear-gradient(135deg, #BF360C 0%, #E64A19 100%);
+  }
+
+  .input {
+    @apply w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-shadow bg-white;
+    --tw-ring-color: #1565C0;
+  }
+  .input:focus {
+    ring-color: #1565C0;
+    box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.25);
+    border-color: transparent;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Badges */
+  .badge-active {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+  }
+  .badge-overdue {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800;
+  }
+  .badge-bad-debt {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800;
+  }
+  .badge-completed {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700;
+  }
+
+  .table-header {
+    @apply text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3;
+  }
+  .table-cell {
+    @apply px-4 py-3 text-sm text-gray-900;
+  }
+  .kpi-card {
+    @apply bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow;
+  }
+}
+
+/* KFL Sidebar nav states */
+.kfl-nav-active {
+  background: linear-gradient(135deg, #1565C0 0%, #1976D2 100%);
+  box-shadow: 0 2px 8px rgba(21, 101, 192, 0.4);
+}
+.kfl-nav-idle:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Custom scrollbar — KFL blue tint */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #90CAF9; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #1565C0; }
