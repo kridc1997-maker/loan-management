@@ -16,29 +16,5 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
-      - key: DB_HOST
-        fromDatabase:
-          name: loan-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: loan-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: loan-db
-          property: database
-      - key: DB_USER
-        fromDatabase:
-          name: loan-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: loan-db
-          property: password
-
-databases:
-  - name: loan-db
-    databaseName: loan_management
-    user: loan_user
-    plan: free
+      - key: DATABASE_URL
+        sync: false
