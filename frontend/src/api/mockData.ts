@@ -118,6 +118,7 @@ export const mockDashboard: DashboardSummary = {
   collectionRate: 0.875,
   activeLoansCount: 23,
   newLoansToday: 2,
+  expectedToday: 0,
 }
 
 export const mockCashFlow: CashFlowSummary = {
