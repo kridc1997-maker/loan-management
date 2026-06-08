@@ -157,8 +157,15 @@ export const loanService = {
         overPayment = Math.max(0, amount - remainingInterest - remainingPrincipal)
         newLoanStatus = 'completed'
         cashTxnType = 'principal_in'
+      } else if (installmentId) {
+        // installment payment — use pre-calculated portions from the installment record
+        const inst = await trx('loan_installments').where({ id: installmentId }).first()
+        interestPaid = Math.min(Number(inst?.interest_portion ?? 0), remainingInterest)
+        principalPaid = Math.min(Number(inst?.principal_portion ?? 0), remainingPrincipal)
+        overPayment = Math.max(0, amount - interestPaid - principalPaid)
+        cashTxnType = principalPaid > 0 ? 'principal_in' : 'interest_in'
       } else {
-        // normal / partial — allocate interest first, then principal
+        // normal / partial (no installment ref) — allocate interest first, then principal
         interestPaid = Math.min(amount, remainingInterest)
         principalPaid = Math.min(amount - interestPaid, remainingPrincipal)
         overPayment = Math.max(0, amount - interestPaid - principalPaid)
