@@ -104,7 +104,7 @@ export default function Dashboard() {
         <KpiCard
           title="กำไรวันนี้"
           value={formatCurrency(d.profitToday)}
-          sub={`คาดว่าจะได้รับ ${formatCurrency(d.expectedToday)}`}
+          sub={`รับมาทั้งหมด ${formatCurrency(d.receivedToday)}`}
           icon={<TrendingUp size={18} className="text-green-600" />}
           iconBg="bg-green-50"
           trend={{ value: 'วันนี้', positive: true }}
