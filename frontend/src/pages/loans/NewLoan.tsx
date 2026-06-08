@@ -95,6 +95,7 @@ export default function NewLoan() {
       ...((loanType === 'installment' || loanType === 'daily') && hasPrePaid && prePaidCount > 0 ? { paidInstallmentsCount: prePaidCount } : {}),
     } as any).then(() => {
       addToast('success', `สร้างสัญญาสำเร็จ! ปล่อยกู้ ${formatCurrency(Number(principal))} ให้ ${selectedCustomer!.firstName}`)
+      window.dispatchEvent(new Event('header-refresh'))
       navigate('/loans')
     }).catch((err) => {
       const msg = err?.response?.data?.error?.message ?? 'เกิดข้อผิดพลาด'

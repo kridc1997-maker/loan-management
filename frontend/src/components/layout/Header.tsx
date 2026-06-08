@@ -17,11 +17,16 @@ export default function Header() {
   const [activeCount, setActiveCount] = useState<number | null>(null)
 
   useEffect(() => {
-    dashboardApi.summary().then((res) => {
-      const d = res.data.data
-      setCashOnHand(d.cashOnHand)
-      setActiveCount(d.activeLoansCount)
-    }).catch(() => {})
+    const fetchSummary = () => {
+      dashboardApi.summary().then((res) => {
+        const d = res.data.data
+        setCashOnHand(d.cashOnHand)
+        setActiveCount(d.activeLoansCount)
+      }).catch(() => {})
+    }
+    fetchSummary()
+    window.addEventListener('header-refresh', fetchSummary)
+    return () => window.removeEventListener('header-refresh', fetchSummary)
   }, [])
 
   useEffect(() => {

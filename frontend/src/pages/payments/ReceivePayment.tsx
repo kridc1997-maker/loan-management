@@ -147,6 +147,7 @@ export default function ReceivePayment() {
         msg = `รับชำระ ${formatCurrency(a)} จาก ${selectedLoan.customerName} สำเร็จ!`
       }
       addToast('success', msg)
+      window.dispatchEvent(new Event('header-refresh'))
       setSubmitted(true)
     }).catch((err) => {
       const msg = err?.response?.data?.error?.message ?? 'เกิดข้อผิดพลาด'

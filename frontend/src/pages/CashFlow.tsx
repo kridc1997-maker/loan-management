@@ -103,6 +103,7 @@ export default function CashFlow() {
       setSaving(true); setErr('')
       await cashApi.adjust({ type: txnType, amount: num, description: desc, txnDate })
       addToast('success', `${txnLabel(txnType)} ฿${formatCurrency(num)} เรียบร้อย`)
+      window.dispatchEvent(new Event('header-refresh'))
       closeModal(); loadBalance(); loadCashFlow()
     } catch (e: any) {
       setErr(e.response?.data?.message ?? 'เกิดข้อผิดพลาด')
@@ -116,6 +117,7 @@ export default function CashFlow() {
       setSaving(true); setErr('')
       await cashApi.setBalance(num, desc || 'ตั้งยอดเงินสดเริ่มต้น')
       addToast('success', `ตั้งยอดเงินสดเป็น ฿${formatCurrency(num)} เรียบร้อย`)
+      window.dispatchEvent(new Event('header-refresh'))
       closeModal(); loadBalance(); loadCashFlow()
     } catch (e: any) {
       setErr(e.response?.data?.message ?? 'เกิดข้อผิดพลาด')
