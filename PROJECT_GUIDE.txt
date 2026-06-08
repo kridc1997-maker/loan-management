@@ -1,0 +1,450 @@
+================================================================================
+  LOAN MANAGEMENT SYSTEM — คู่มือโครงสร้างโปรเจ็ค
+  สำหรับแก้ไขด้วยตัวเองในอนาคต
+================================================================================
+
+--------------------------------------------------------------------------------
+  TECH STACK
+--------------------------------------------------------------------------------
+  Frontend  : React + TypeScript + Vite + TailwindCSS + Recharts
+  Backend   : Node.js + Express + TypeScript + Knex.js
+  Database  : PostgreSQL (Supabase)
+  Deploy    : Render (Web Service) — https://loan-management-egda.onrender.com
+  Repo      : GitHub → kridc1997-maker/loan-management
+
+--------------------------------------------------------------------------------
+  โครงสร้างโฟลเดอร์หลัก
+--------------------------------------------------------------------------------
+  LoanManageMent/
+  ├── frontend/          ส่วน UI ที่ผู้ใช้เห็น
+  ├── backend/           ส่วน API server
+  └── render.yaml        config การ deploy บน Render
+
+================================================================================
+  BACKEND — อธิบายแต่ละไฟล์
+================================================================================
+
+--- ENTRY POINT ---
+
+backend/src/app.ts
+  คืออะไร : ไฟล์หลักที่เปิด Express server
+  แก้เมื่อ : เพิ่ม middleware ใหม่, เปลี่ยน port, เพิ่ม CORS
+
+--- DATABASE ---
+
+backend/src/db/connection.ts
+  คืออะไร : เชื่อมต่อ database ด้วย Knex
+             ถ้ามี DATABASE_URL ใช้ connectionString (Supabase/Render)
+             ถ้าไม่มีใช้ host/port/user/password แยก (.env)
+  แก้เมื่อ : เปลี่ยน database provider, เพิ่ม SSL settings
+
+backend/src/db/knexfile.ts
+  คืออะไร : config ของ Knex แยก development/production
+             production ใช้ loadExtensions: ['.js'] เพื่อกัน .d.ts
+  แก้เมื่อ : เปลี่ยน path migration/seed, เพิ่ม environment ใหม่
+
+--- MIGRATIONS (สร้างตาราง) ---
+
+backend/src/db/migrations/001_create_roles_users.ts
+  คืออะไร : สร้างตาราง users (id, username, password_hash, role, is_active)
+  แก้เมื่อ : เพิ่ม column ใน users เช่น phone, email
+
+backend/src/db/migrations/002_create_customers.ts
+  คืออะไร : สร้างตาราง customers (id, first_name, last_name, phone, address, ...)
+  แก้เมื่อ : เพิ่ม field ข้อมูลลูกค้า
+
+backend/src/db/migrations/003_create_loans.ts
+  คืออะไร : สร้างตาราง loans
+             - loan_type: single | installment | flexible | daily
+             - status: active | overdue | completed | bad_debt
+             - paid_principal, paid_interest, paid_installments
+  แก้เมื่อ : เพิ่ม loan type ใหม่, เพิ่ม field ใหม่ในสัญญา
+
+backend/src/db/migrations/004_create_installments_payments.ts
+  คืออะไร : สร้าง 2 ตาราง
+             loan_installments — ตารางงวดชำระ (amount_due, interest_portion,
+               principal_portion, due_date, status)
+             payments — ประวัติการรับชำระ (amount, interest_paid,
+               principal_paid, payment_type, payment_date)
+  แก้เมื่อ : เพิ่ม field ใน payment เช่น bank_reference
+
+backend/src/db/migrations/005_create_cash_baddebt_snapshots.ts
+  คืออะไร : สร้างตาราง cash_transactions, bad_debts, monthly_snapshots, settings
+  แก้เมื่อ : เพิ่ม transaction type ใหม่, เพิ่ม settings key
+
+*** วิธีรัน migration บน Supabase ***
+  หลัง deploy Render จะรัน: npm run migrate:prod
+  ถ้าอยากรันด้วยตัวเอง: cd backend && node -e "require('./dist/db/knexfile.js').default.production" ...
+
+--- SEEDS (ข้อมูลตัวอย่าง) ---
+
+backend/src/db/seeds/001_initial_data.ts
+  คืออะไร : ข้อมูลตัวอย่างสำหรับ dev/test เท่านั้น
+             มี user admin, ลูกค้า, สัญญาตัวอย่าง
+  แก้เมื่อ : เพิ่ม test data
+  *** อย่ารันบน production ข้อมูลจริงจะหาย ***
+
+--- ROUTES (API endpoints ทั้งหมด) ---
+
+backend/src/routes/index.ts
+  คืออะไร : ไฟล์หลักที่รวม API ทุกเส้น
+             Pattern: router.get/post/put/delete('/path', middleware, handler)
+  แก้เมื่อ : เพิ่ม/แก้ API endpoint
+
+  รายการ endpoint หลัก:
+    POST /auth/login          — เข้าสู่ระบบ
+    GET  /dashboard/summary   — ข้อมูล KPI หน้า Dashboard
+    GET  /dashboard/cashflow  — กราฟ cashflow
+    GET  /customers           — รายชื่อลูกค้า
+    POST /customers           — เพิ่มลูกค้า
+    GET  /loans               — รายการสัญญา
+    POST /loans               — สร้างสัญญาใหม่
+    POST /payments            — บันทึกรับชำระ
+    GET  /reports/monthly-stats?year=YYYY — รายงานรายเดือน
+    GET  /cash/balance        — ยอดเงินสด
+    POST /cash/adjust         — รับเงิน/จ่ายเงิน
+
+--- SERVICES (business logic) ---
+
+backend/src/services/loanService.ts
+  คืออะไร : logic หลักการสร้างสัญญาและรับชำระ
+
+  ฟังก์ชันสำคัญ:
+    createLoan()       — สร้างสัญญา + คำนวณงวด + หักเงินสด
+    receivePayment()   — บันทึกชำระ + แบ่ง interest/principal
+
+  *** จุดสำคัญ ***
+  การแบ่ง interest_paid / principal_paid:
+    - paymentType = 'rollover'    → ทั้งหมดเป็น interest
+    - paymentType = 'full'        → ปิดสัญญา ดอก+ต้นที่เหลือ
+    - มี installmentId            → ใช้ interest_portion จากงวดนั้น (แม่นยำ)
+    - ไม่มี installmentId         → interest first แล้วค่อยต้น
+
+  แก้เมื่อ : เปลี่ยนวิธีคำนวณดอก, เพิ่ม payment type ใหม่
+
+backend/src/services/authService.ts
+  คืออะไร : login, bcrypt verify password, สร้าง JWT token
+  แก้เมื่อ : เปลี่ยน JWT expiry, เพิ่ม refresh token
+
+--- REPOSITORIES (query database) ---
+
+backend/src/repositories/dashboardRepository.ts
+  คืออะไร : query ทุก KPI ในหน้า Dashboard
+
+  field ที่ return:
+    cashOnHand        — ยอดเงินสดจาก cash_transactions ล่าสุด
+    outstandingPrincipal — ต้นคงค้างทุกสัญญา active+overdue
+    profitToday       — SUM(interest_paid) วันนี้ เฉพาะ non-daily
+    profitThisMonth   — SUM(interest_paid) เดือนนี้ เฉพาะ non-daily
+    receivedToday     — SUM(principal+interest) รับมาทุก type วันนี้
+    collectionRate    — งวดที่จ่ายแล้ว/งวดทั้งหมด 30 วัน
+    badDebtAmount     — หนี้เสียที่ยังไม่กู้คืน
+
+  แก้เมื่อ : เพิ่ม KPI card ใหม่ใน Dashboard
+
+backend/src/repositories/loanRepository.ts
+  คืออะไร : CRUD query สำหรับตาราง loans + loan_installments
+  แก้เมื่อ : เพิ่ม filter/sort ใหม่ในรายการสัญญา
+
+backend/src/repositories/paymentRepository.ts
+  คืออะไร : query ประวัติการชำระ
+  แก้เมื่อ : เพิ่ม report เกี่ยวกับ payment
+
+backend/src/repositories/customerRepository.ts
+  คืออะไร : CRUD query ลูกค้า + สรุปสัญญาของลูกค้า
+  แก้เมื่อ : เพิ่ม field ในหน้า customer detail
+
+--- MIDDLEWARE ---
+
+backend/src/middleware/auth.ts
+  คืออะไร : 2 middleware:
+             authenticate  — ตรวจ JWT token ทุก request
+             requireAdmin  — กั้นเฉพาะ admin (user management)
+  แก้เมื่อ : เพิ่ม role ใหม่, เปลี่ยน permission
+
+backend/src/middleware/errorHandler.ts
+  คืออะไร : จัดการ error ทุกอัน return JSON { success: false, message }
+  แก้เมื่อ : เปลี่ยน format error response
+
+--- UTILS ---
+
+backend/src/utils/helpers.ts
+  คืออะไร : ฟังก์ชันช่วย:
+             generateInstallments() — คำนวณงวดชำระทั้งหมด แบ่ง interest/principal
+             generateLoanNumber()   — สร้างเลขสัญญา LN-YYYYMMDD-XXX
+             generatePaymentNumber() — สร้างเลข PAY-XXX
+  แก้เมื่อ : เปลี่ยนสูตรคำนวณงวด, เปลี่ยน format เลขสัญญา
+
+backend/src/types/index.ts
+  คืออะไร : TypeScript interface ของ backend
+             Loan, Customer, Payment, LoanInstallment, etc.
+  แก้เมื่อ : เพิ่ม field ใหม่ (ต้องเพิ่มทั้ง migration + type)
+
+--- CONTROLLERS ---
+
+backend/src/controllers/*.ts
+  คืออะไร : รับ req จาก routes → เรียก service/repository → ส่ง response
+  แก้เมื่อ : แก้ validation, เปลี่ยน format response
+
+================================================================================
+  FRONTEND — อธิบายแต่ละไฟล์
+================================================================================
+
+--- ENTRY & ROUTING ---
+
+frontend/src/main.tsx
+  คืออะไร : จุดเริ่มต้น React app
+  แก้เมื่อ : แทบไม่ต้องแก้
+
+frontend/src/App.tsx
+  คืออะไร : กำหนด routes ทั้งหมด (React Router)
+             Protected routes ที่ต้อง login ก่อน
+  แก้เมื่อ : เพิ่มหน้าใหม่, เปลี่ยน URL path
+
+--- API LAYER ---
+
+frontend/src/api/client.ts
+  คืออะไร : axios instance หลัก
+             แนบ JWT token ทุก request อัตโนมัติ
+             ถ้า 401 → logout อัตโนมัติ
+  แก้เมื่อ : เปลี่ยน base URL, เพิ่ม interceptor
+
+frontend/src/api/endpoints.ts
+  คืออะไร : รวม function เรียก API ทุกอัน
+             dashboardApi, loanApi, customerApi, paymentApi, reportApi, cashApi
+  แก้เมื่อ : เพิ่ม API call ใหม่ → เพิ่มที่นี่แล้วเรียกจากหน้าต่างๆ
+
+frontend/src/api/mockData.ts
+  คืออะไร : ข้อมูลจำลองสำหรับ development
+             *** ต้อง sync กับ TypeScript type เสมอ ***
+             ถ้าเพิ่ม field ใน DashboardSummary → ต้องเพิ่มใน mockDashboard ด้วย
+  แก้เมื่อ : เพิ่ม field ใหม่ใน type → ต้องอัพเดทที่นี่ด้วย
+
+--- TYPES ---
+
+frontend/src/types/index.ts
+  คืออะไร : TypeScript interface ของ frontend ทั้งหมด
+             DashboardSummary, Loan, Customer, Payment, etc.
+
+  *** สำคัญมาก ***
+  เมื่อ backend เพิ่ม field ใหม่ใน response:
+    1. เพิ่ม field ใน interface ที่นี่
+    2. เพิ่มใน mockData.ts (ถ้า interface นั้นมี mock)
+    3. ใช้งานในหน้าที่ต้องการ
+
+  ถ้าลืมขั้นตอนใดขั้นตอนหนึ่ง → build จะ fail (TypeScript error)
+
+--- STORES (global state) ---
+
+frontend/src/stores/authStore.ts
+  คืออะไร : เก็บข้อมูล user ที่ login อยู่ (zustand)
+             user.role ใช้ตรวจ admin/staff permission
+  แก้เมื่อ : เพิ่ม field ใน user object
+
+frontend/src/stores/appStore.ts
+  คืออะไร : เก็บ UI state (sidebar open/close, theme)
+  แก้เมื่อ : เพิ่ม global UI state
+
+--- UTILS ---
+
+frontend/src/utils/financial.ts
+  คืออะไร : ฟังก์ชัน format:
+             formatCurrency(1000)    → "฿1,000"
+             formatPercent(0.875)    → "87.5%"
+             formatDate("2026-01-01") → "01/01/2569"
+  แก้เมื่อ : เปลี่ยน format แสดงเงิน/วันที่
+
+--- LAYOUT COMPONENTS ---
+
+frontend/src/components/layout/Header.tsx
+  คืออะไร : แถบบนสุด — เงินสดในมือ, จำนวนสัญญา, ชื่อ user, logout
+             รับ event 'header-refresh' เพื่ออัพเดทยอดเงินสด
+  แก้เมื่อ : เพิ่ม info ใน header, เปลี่ยน KPI ที่แสดง
+
+frontend/src/components/layout/Sidebar.tsx
+  คืออะไร : เมนูด้านซ้าย — ลิงค์ทุกหน้า
+  แก้เมื่อ : เพิ่มเมนูใหม่
+
+frontend/src/components/layout/Layout.tsx
+  คืออะไร : wrapper ครอบทุกหน้า (Header + Sidebar + Content)
+  แก้เมื่อ : แทบไม่ต้องแก้
+
+--- UI COMPONENTS ---
+
+frontend/src/components/ui/KpiCard.tsx
+  คืออะไร : Card แสดงตัวเลข KPI ใน Dashboard
+  แก้เมื่อ : เปลี่ยน style ของ card
+
+frontend/src/components/ui/Modal.tsx
+  คืออะไร : Popup modal ใช้ทั่วทั้ง app
+  แก้เมื่อ : เปลี่ยนขนาด/style modal
+
+frontend/src/components/ui/StatusBadge.tsx
+  คืออะไร : badge สี active/overdue/completed/bad_debt
+  แก้เมื่อ : เพิ่ม status ใหม่, เปลี่ยนสี
+
+frontend/src/components/ui/Toast.tsx
+  คืออะไร : แจ้งเตือนสำเร็จ/ผิดพลาดมุมจอ
+  แก้เมื่อ : เปลี่ยนตำแหน่ง/style toast
+
+--- PAGES ---
+
+frontend/src/pages/Dashboard.tsx
+  คืออะไร : หน้าหลัก — KPI cards 8 ตัว, กราฟ cashflow, top customers, due today
+  แก้เมื่อ : เพิ่ม/ลด card, เปลี่ยน layout
+
+frontend/src/pages/Reports.tsx
+  คืออะไร : รายงานรายเดือน — เลือกปี, กราฟกำไร, กราฟปล่อยกู้vs เก็บได้, ตารางรายเดือน
+             ดึงข้อมูลจาก /reports/monthly-stats และ /dashboard/summary
+  แก้เมื่อ : เพิ่ม chart, เปลี่ยน KPI ที่แสดง
+
+frontend/src/pages/CashFlow.tsx
+  คืออะไร : จัดการเงินสด — รับเงิน/จ่ายเงิน/ตั้งยอด, กราฟ 14/30 วัน
+  แก้เมื่อ : เพิ่มประเภท transaction
+
+frontend/src/pages/Users.tsx
+  คืออะไร : จัดการ user — admin เห็น/เพิ่ม/แก้/ลบได้, staff เห็นอย่างเดียว
+  แก้เมื่อ : เพิ่ม field user, เปลี่ยน permission
+
+frontend/src/pages/Settings.tsx
+  คืออะไร : ตั้งค่าระบบ เช่น อัตราดอกเบี้ย default
+  แก้เมื่อ : เพิ่ม setting key ใหม่
+
+frontend/src/pages/BadDebt.tsx
+  คืออะไร : จัดการหนี้เสีย — โอนสัญญาเป็น bad debt, กู้คืน
+  แก้เมื่อ : เพิ่ม field bad debt
+
+frontend/src/pages/OverdueLoans.tsx
+  คืออะไร : รายการสัญญาค้างชำระ
+  แก้เมื่อ : เพิ่ม filter/sort
+
+frontend/src/pages/customers/CustomerList.tsx
+  คืออะไร : รายชื่อลูกค้าทั้งหมด + ค้นหา
+  แก้เมื่อ : เพิ่ม column ในตาราง
+
+frontend/src/pages/customers/CustomerDetail.tsx
+  คืออะไร : ข้อมูลลูกค้า 1 คน + ประวัติสัญญาทั้งหมด
+  แก้เมื่อ : เพิ่ม tab/ข้อมูลใน detail
+
+frontend/src/pages/loans/ActiveLoans.tsx
+  คืออะไร : รายการสัญญาที่ active/overdue อยู่
+  แก้เมื่อ : เพิ่ม column, เพิ่ม filter
+
+frontend/src/pages/loans/LoanDetail.tsx
+  คืออะไร : ข้อมูลสัญญา 1 สัญญา + ตารางงวด + ประวัติชำระ
+  แก้เมื่อ : เพิ่ม section ใหม่
+
+frontend/src/pages/loans/NewLoan.tsx
+  คืออะไร : ฟอร์มสร้างสัญญาใหม่ — เลือก customer, ใส่ยอด, อัตรา, ประเภท
+  แก้เมื่อ : เพิ่ม field ในฟอร์ม, เปลี่ยน validation
+
+frontend/src/pages/loans/InstallmentSchedule.tsx
+  คืออะไร : แสดง preview ตารางงวดก่อนสร้างสัญญา
+  แก้เมื่อ : เปลี่ยน format ตาราง
+
+frontend/src/pages/payments/ReceivePayment.tsx
+  คืออะไร : ฟอร์มรับชำระ — เลือกสัญญา, ใส่ยอด, เลือกประเภท
+  แก้เมื่อ : เพิ่ม payment type ใหม่
+
+================================================================================
+  DATABASE SCHEMA สรุป
+================================================================================
+
+ตาราง            คีย์หลัก   เก็บอะไร
+--------         -------    --------
+users            id         ผู้ใช้ระบบ (admin/staff)
+customers        id         ลูกค้าที่กู้เงิน
+loans            id         สัญญากู้ยืม
+loan_installments id        ตารางงวดชำระของแต่ละสัญญา
+payments         id         ประวัติรับชำระทุกครั้ง
+cash_transactions id        ประวัติเงินสดเข้า-ออก
+bad_debts        id         สัญญาที่โอนเป็นหนี้เสีย
+monthly_snapshots id        snapshot รายเดือน (ยังไม่ได้ใช้งาน)
+settings         key        ค่าตั้งต้นระบบ (key-value)
+audit_logs       id         log การกระทำสำคัญ
+
+--------------------------------------------------------------------------------
+  ความสัมพันธ์:
+  customers → loans (1 คน มีได้หลายสัญญา)
+  loans → loan_installments (1 สัญญา มีหลายงวด)
+  loans → payments (1 สัญญา มีหลาย payment)
+  loan_installments → payments (งวดนึง ผูกกับ payment ได้)
+  loans → bad_debts (สัญญาที่เป็นหนี้เสีย)
+
+================================================================================
+  WORKFLOW: เมื่ออยากเพิ่ม FEATURE ใหม่
+================================================================================
+
+  1. เพิ่ม column ในฐานข้อมูล?
+     → สร้างไฟล์ migration ใหม่ใน backend/src/db/migrations/
+     → ชื่อไฟล์ต้องเรียงลำดับ: 006_xxx.ts
+     → Push → Render จะรัน migration ให้อัตโนมัติ
+
+  2. เพิ่ม API endpoint ใหม่?
+     → แก้ backend/src/routes/index.ts เพิ่ม route
+     → ถ้า logic ซับซ้อน → แยกไปใส่ใน service/repository
+     → เพิ่ม function ใน frontend/src/api/endpoints.ts
+
+  3. เพิ่ม field ใน response?
+     → แก้ backend query (repository หรือ routes)
+     → เพิ่ม field ใน frontend/src/types/index.ts
+     → เพิ่มใน mockData.ts ถ้า interface นั้นมี mock
+     → ใช้งานในหน้าที่ต้องการ
+
+  4. เพิ่มหน้าใหม่?
+     → สร้างไฟล์ใน frontend/src/pages/
+     → เพิ่ม route ใน frontend/src/App.tsx
+     → เพิ่มเมนูใน frontend/src/components/layout/Sidebar.tsx
+
+================================================================================
+  DEPLOY PROCESS
+================================================================================
+
+  1. แก้โค้ด
+  2. git add . && git commit -m "อธิบายการเปลี่ยนแปลง"
+  3. git push origin main
+  4. Render จะ build อัตโนมัติ (~3-5 นาที)
+     - cd frontend && npm install --include=dev && npm run build
+     - cd backend && npm install --include=dev && npm run build
+     - npm run migrate:prod (รัน migration ที่ยังไม่ได้รัน)
+     - node dist/app.js
+
+  ดู log ที่: render.com → loan-management → Logs
+  Database:   supabase.com → SQL Editor
+
+================================================================================
+  ENVIRONMENT VARIABLES (ต้องตั้งใน Render Dashboard)
+================================================================================
+
+  DATABASE_URL   postgresql://user:password@host:5432/dbname
+  JWT_SECRET     string สุ่มยาวๆ สำหรับ sign token
+  JWT_EXPIRES_IN เช่น 7d หรือ 24h
+  NODE_ENV       production
+
+================================================================================
+  COMMON FIXES — ปัญหาที่เคยเจอ
+================================================================================
+
+  ปัญหา: build failed "Property X does not exist on type Y"
+  สาเหตุ: เพิ่ม field ใน backend แต่ลืมเพิ่มใน frontend/src/types/index.ts
+  แก้: เพิ่ม field ใน types/index.ts และ mockData.ts
+
+  ปัญหา: migration failed ".ts file not found"
+  สาเหตุ: knex_migrations เก็บชื่อไฟล์ .ts แต่ compiled เป็น .js
+  แก้: UPDATE knex_migrations SET name = REPLACE(name, '.ts', '.js')
+
+  ปัญหา: login 500 error
+  สาเหตุ: table ไม่มี หรือ column type ผิด
+  แก้: ตรวจสอบ Supabase Table Editor / Render Logs
+
+  ปัญหา: กำไรวันนี้แสดงผิด (ดอกทั้งหมดขึ้นในงวดแรก)
+  สาเหตุ: payment ไม่มี installmentId ทำให้ใช้ "interest first" logic
+  แก้: ถ้าชำระผ่าน installment ต้องส่ง installmentId มาด้วยเสมอ
+       แล้ว loanService จะใช้ interest_portion จากงวดนั้นแทน
+
+  ปัญหา: เงินสดใน navbar ไม่อัพเดท
+  สาเหตุ: ไม่ได้ dispatch 'header-refresh' event หลัง transaction
+  แก้: เพิ่ม window.dispatchEvent(new Event('header-refresh'))
+       หลัง payment/cashflow สำเร็จ
+
+================================================================================
