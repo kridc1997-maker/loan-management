@@ -62,6 +62,7 @@ export const badDebtApi = {
 export const reportApi = {
   monthly: () => api.get('/reports/monthly'),
   profit: (from?: string, to?: string) => api.get('/reports/profit', { params: { from, to } }),
+  monthlyStats: (year?: number) => api.get('/reports/monthly-stats', { params: { year } }),
 }
 
 // ─── Cash ─────────────────────────────────────────────────────────────────────

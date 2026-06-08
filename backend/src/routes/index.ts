@@ -127,6 +127,51 @@ router.get('/reports/profit', authenticate, async (req, res, next) => {
   }
 })
 
+router.get('/reports/monthly-stats', authenticate, async (req, res, next) => {
+  try {
+    const year = parseInt((req.query.year as string) ?? String(new Date().getFullYear()))
+    const from = `${year}-01-01`
+    const to = `${year}-12-31`
+
+    const [paymentRows, loanRows] = await Promise.all([
+      db('payments')
+        .select(
+          db.raw("TO_CHAR(DATE_TRUNC('month', payment_date::date), 'YYYY-MM') AS month_key"),
+          db.raw('SUM(interest_paid) AS interest_collected'),
+          db.raw('SUM(principal_paid) AS principal_collected'),
+        )
+        .whereBetween('payment_date', [from, to])
+        .groupByRaw("DATE_TRUNC('month', payment_date::date)")
+        .orderBy('month_key'),
+      db('loans')
+        .select(
+          db.raw("TO_CHAR(DATE_TRUNC('month', issued_date::date), 'YYYY-MM') AS month_key"),
+          db.raw('SUM(principal_amount) AS loans_issued'),
+        )
+        .whereBetween('issued_date', [from, to])
+        .groupByRaw("DATE_TRUNC('month', issued_date::date)")
+        .orderBy('month_key'),
+    ])
+
+    const paymentMap: Record<string, typeof paymentRows[0]> = {}
+    paymentRows.forEach((r) => { paymentMap[r.month_key] = r })
+    const loanMap: Record<string, typeof loanRows[0]> = {}
+    loanRows.forEach((r) => { loanMap[r.month_key] = r })
+
+    const allKeys = [...new Set([...paymentRows.map((r) => r.month_key), ...loanRows.map((r) => r.month_key)])].sort()
+    const data = allKeys.map((key) => ({
+      month_key: key,
+      interest_collected: Number(paymentMap[key]?.interest_collected ?? 0),
+      principal_collected: Number(paymentMap[key]?.principal_collected ?? 0),
+      loans_issued: Number(loanMap[key]?.loans_issued ?? 0),
+    }))
+
+    res.json({ success: true, data })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 router.get('/settings', authenticate, async (_req, res, next) => {
   try {
