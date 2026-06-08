@@ -179,6 +179,7 @@ export interface DashboardSummary {
   collectionRate: number
   activeLoansCount: number
   newLoansToday: number
+  expectedToday: number
 }
 
 export interface CashFlowDay {
