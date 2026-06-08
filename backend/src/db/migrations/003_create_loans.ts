@@ -11,7 +11,7 @@ export async function up(knex: Knex): Promise<void> {
     t.decimal('principal_amount', 12, 2).notNullable()
     t.decimal('total_amount', 12, 2).notNullable()
     t.decimal('interest_rate', 6, 4).notNullable()
-    t.enu('loan_type', ['single', 'installment']).notNullable().defaultTo('single')
+    t.enu('loan_type', ['single', 'installment', 'flexible', 'daily']).notNullable().defaultTo('single')
     t.integer('total_installments').notNullable().defaultTo(1)
     t.decimal('installment_amount', 12, 2)
 
