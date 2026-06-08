@@ -110,9 +110,11 @@ export default function Users() {
           <h1 className="text-xl font-bold text-gray-900">จัดการผู้ใช้งาน</h1>
           <p className="text-sm text-gray-400 mt-0.5">เพิ่ม แก้ไข และจัดการสิทธิ์ผู้ใช้ระบบ</p>
         </div>
-        <button onClick={() => setCreateOpen(true)} className="btn-primary">
-          <UserPlus size={16} /> เพิ่มผู้ใช้งาน
-        </button>
+        {me?.role === 'admin' && (
+          <button onClick={() => setCreateOpen(true)} className="btn-primary">
+            <UserPlus size={16} /> เพิ่มผู้ใช้งาน
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -169,6 +171,7 @@ export default function Users() {
                 </td>
                 <td className="table-cell">
                   <div className="flex items-center justify-center gap-1">
+                    {me?.role === 'admin' && <>
                     <button onClick={() => openEdit(u)} title="แก้ไขข้อมูล"
                       className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors">
                       <Edit2 size={15}/>
@@ -183,6 +186,7 @@ export default function Users() {
                         <Trash2 size={15}/>
                       </button>
                     )}
+                    </>}
                   </div>
                 </td>
               </tr>
