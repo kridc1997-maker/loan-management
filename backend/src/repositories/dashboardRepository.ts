@@ -16,6 +16,7 @@ export const dashboardRepo = {
       expectedProfitRow,
       installmentStats,
       newLoansToday,
+      expectedTodayRow,
     ] = await Promise.all([
       // Latest cash balance
       db('cash_transactions').select('balance_after').orderBy('id', 'desc').first(),
@@ -41,6 +42,8 @@ export const dashboardRepo = {
         .first(),
       // New loans today
       db('loans').whereRaw("issued_date::date = ?::date", [today]).count('id as count').first(),
+      // Expected interest income today (installments due today)
+      db('loan_installments').sum('interest_portion as total').whereRaw('due_date = ?::date', [today]).first(),
     ])
 
     const cashOnHand = Number(cashRow?.balance_after ?? 0)
@@ -62,6 +65,7 @@ export const dashboardRepo = {
       collectionRate: totalDue > 0 ? totalPaid / totalDue : 0,
       activeLoansCount: Number(activeCountRow?.count ?? 0),
       newLoansToday: Number(newLoansToday?.count ?? 0),
+      expectedToday: Number(expectedTodayRow?.total ?? 0),
     }
   },
 
