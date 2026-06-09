@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Wallet, TrendingUp, PiggyBank, BadgeDollarSign,
-  AlertTriangle, Users, CheckCircle, Phone, Landmark,
+  AlertTriangle, Users, CheckCircle, Phone, Landmark, Receipt,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -11,7 +11,7 @@ import {
 import KpiCard from '../components/ui/KpiCard'
 import StatusBadge from '../components/ui/StatusBadge'
 import { formatCurrency, formatPercent, overdueBadgeClass, daysOverdue, isInstallmentBased } from '../utils/financial'
-import { dashboardApi } from '../api/endpoints'
+import { dashboardApi, paymentApi } from '../api/endpoints'
 import type { DashboardSummary, CashFlowSummary, TopCustomer, DueTodayItem } from '../types'
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -39,6 +39,8 @@ export default function Dashboard() {
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([])
   const [dueToday, setDueToday] = useState<DueTodayItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [dailyPayments, setDailyPayments] = useState<any[]>([])
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
     Promise.all([
@@ -53,6 +55,12 @@ export default function Dashboard() {
       setDueToday(due.data.data ?? [])
     }).finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    paymentApi.daily(selectedDate).then((res) => {
+      setDailyPayments(res.data.data ?? [])
+    }).catch(() => {})
+  }, [selectedDate])
 
   if (loading || !summary) {
     return (
@@ -295,6 +303,71 @@ export default function Dashboard() {
                     </tr>
                   )
                 })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Daily Received Payments */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Receipt size={15} className="text-gray-400" />
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">ยอดรับวันนี้</h2>
+              <p className="text-xs text-gray-400">{dailyPayments.length} รายการ · รวม {formatCurrency(dailyPayments.reduce((s, p) => s + Number(p.amount), 0))}</p>
+            </div>
+          </div>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="table-header">ลูกค้า</th>
+                <th className="table-header">เลขสัญญา</th>
+                <th className="table-header">ประเภท</th>
+                <th className="table-header text-right">ยอดรับ</th>
+                <th className="table-header text-right">ดอกเบี้ย</th>
+                <th className="table-header text-right">เงินต้น</th>
+                <th className="table-header">ช่องทาง</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dailyPayments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-sm text-gray-400">ไม่มีรายการรับชำระในวันนี้</td>
+                </tr>
+              ) : (
+                dailyPayments.map((p) => (
+                  <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50">
+                    <td className="table-cell">
+                      <p className="font-medium text-gray-900 text-sm">{p.customer_name}</p>
+                    </td>
+                    <td className="table-cell text-gray-500 text-xs">{p.loan_number}</td>
+                    <td className="table-cell">
+                      <span className="text-xs text-gray-500">
+                        {p.loan_type === 'single' ? 'ครั้งเดียว'
+                          : p.loan_type === 'installment' ? 'แบ่งงวด'
+                          : p.loan_type === 'flexible' ? 'ต่อดอก'
+                          : 'รายวัน'}
+                        {p.payment_type === 'rollover' ? ' (ต่อดอก)' : p.payment_type === 'full' ? ' (ปิด)' : ''}
+                      </span>
+                    </td>
+                    <td className="table-cell text-right font-semibold text-gray-900">{formatCurrency(Number(p.amount))}</td>
+                    <td className="table-cell text-right text-green-600 font-medium">{formatCurrency(Number(p.interest_paid))}</td>
+                    <td className="table-cell text-right text-blue-600">{formatCurrency(Number(p.principal_paid))}</td>
+                    <td className="table-cell text-xs text-gray-500">
+                      {p.payment_method === 'cash' ? 'เงินสด' : p.payment_method === 'transfer' ? 'โอน' : 'อื่นๆ'}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

@@ -93,6 +93,35 @@ router.get('/payments', authenticate, async (req, res, next) => {
   }
 })
 
+router.get('/payments/daily', authenticate, async (req, res, next) => {
+  try {
+    const date = (req.query.date as string) ?? new Date().toISOString().split('T')[0]
+    const rows = await db('payments as p')
+      .join('loans as l', 'l.id', 'p.loan_id')
+      .join('customers as c', 'c.id', 'l.customer_id')
+      .select(
+        'p.id',
+        'p.payment_number',
+        'p.amount',
+        'p.interest_paid',
+        'p.principal_paid',
+        'p.over_payment',
+        'p.payment_type',
+        'p.payment_method',
+        'p.note',
+        'l.loan_number',
+        'l.loan_type',
+        db.raw("c.first_name || ' ' || c.last_name AS customer_name"),
+        'c.id as customer_id',
+      )
+      .whereRaw('p.payment_date::date = ?::date', [date])
+      .orderBy('p.id', 'desc')
+    res.json({ success: true, data: rows })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // ─── Bad Debts ────────────────────────────────────────────────────────────────
 router.get('/bad-debts', authenticate, badDebtController.list)
 router.put('/bad-debts/:id/recover', authenticate, badDebtController.recover)

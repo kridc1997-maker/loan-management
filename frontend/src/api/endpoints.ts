@@ -50,6 +50,7 @@ export const loanApi = {
 // ─── Payments ─────────────────────────────────────────────────────────────────
 export const paymentApi = {
   list: (params?: Record<string, any>) => api.get('/payments', { params }),
+  daily: (date: string) => api.get('/payments/daily', { params: { date } }),
 }
 
 // ─── Bad Debts ────────────────────────────────────────────────────────────────
