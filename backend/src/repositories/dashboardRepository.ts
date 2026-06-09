@@ -52,8 +52,8 @@ export const dashboardRepo = {
         .first(),
       // New loans today
       db('loans').whereRaw("issued_date::date = ?::date", [today]).count('id as count').first(),
-      // Total received today (principal + interest)
-      db('payments').select(db.raw('SUM(principal_paid + interest_paid) AS total')).whereRaw("payment_date::date = ?::date", [today]).first(),
+      // Total received today (actual amount collected)
+      db('payments').sum('amount as total').whereRaw("payment_date::date = ?::date", [today]).first(),
     ])
 
     const cashOnHand = Number(cashRow?.balance_after ?? 0)
