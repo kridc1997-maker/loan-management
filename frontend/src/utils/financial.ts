@@ -22,20 +22,22 @@ export const formatPercent = (value: number, decimals = 1): string => {
   return `${(value * 100).toFixed(decimals)}%`
 }
 
+const THAI_MONTHS_SHORT = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
 export const formatDate = (dateStr: string): string => {
   if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('th-TH', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  const parts = dateStr.slice(0, 10).split('-').map(Number)
+  if (parts.length !== 3 || isNaN(parts[0])) return '-'
+  const [y, m, d] = parts
+  return `${String(d).padStart(2, '0')} ${THAI_MONTHS_SHORT[m - 1]} ${y + 543}`
 }
 
 export const formatDateShort = (dateStr: string): string => {
   if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  const parts = dateStr.slice(0, 10).split('-').map(Number)
+  if (parts.length !== 3 || isNaN(parts[0])) return '-'
+  const [y, m, d] = parts
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${String((y + 543) % 100).padStart(2, '0')}`
 }
 
 export const toInputDate = (dateStr: string): string => {
