@@ -172,6 +172,79 @@ router.get('/reports/monthly-stats', authenticate, async (req, res, next) => {
   }
 })
 
+// Generate monthly snapshots for all months that have payment or loan data
+router.post('/reports/snapshots/generate', authenticate, requireAdmin, async (_req, res, next) => {
+  try {
+    // Find all distinct months from payments and loans
+    const [paymentMonths, loanMonths] = await Promise.all([
+      db('payments').select(db.raw("TO_CHAR(DATE_TRUNC('month', payment_date::date), 'YYYY-MM-DD') AS month")).groupByRaw("DATE_TRUNC('month', payment_date::date)"),
+      db('loans').select(db.raw("TO_CHAR(DATE_TRUNC('month', issued_date::date), 'YYYY-MM-DD') AS month")).groupByRaw("DATE_TRUNC('month', issued_date::date)"),
+    ])
+
+    const allMonths = [...new Set([...paymentMonths.map((r) => r.month), ...loanMonths.map((r) => r.month)])].sort()
+    let generated = 0
+
+    for (const monthStart of allMonths) {
+      const monthEnd = new Date(new Date(monthStart).getFullYear(), new Date(monthStart).getMonth() + 1, 0).toISOString().split('T')[0]
+
+      const [payStats, loanStats, closedStats, cashOpen, cashClose, badDebtStats] = await Promise.all([
+        db('payments')
+          .select(
+            db.raw('COALESCE(SUM(amount), 0) AS total_collected'),
+            db.raw('COALESCE(SUM(interest_paid), 0) AS interest_collected'),
+            db.raw('COALESCE(SUM(principal_paid), 0) AS principal_collected'),
+          )
+          .whereBetween('payment_date', [monthStart, monthEnd])
+          .first(),
+        db('loans')
+          .select(
+            db.raw('COALESCE(SUM(principal_amount), 0) AS total_loan_out'),
+            db.raw('COUNT(*) AS new_loans_count'),
+          )
+          .whereBetween('issued_date', [monthStart, monthEnd])
+          .first(),
+        db('loans').count('id as cnt').whereBetween('closed_date', [monthStart, monthEnd]).first(),
+        db('cash_transactions').select('balance_after').where('txn_date', '<', monthStart).orderBy('id', 'desc').first(),
+        db('cash_transactions').select('balance_after').where('txn_date', '<=', monthEnd).orderBy('id', 'desc').first(),
+        db('bad_debts').select(db.raw('COALESCE(SUM(total_lost), 0) AS total')).whereBetween('marked_date', [monthStart, monthEnd]).first(),
+      ])
+
+      const outstandingRow = await db('loans')
+        .sum({ total: db.raw('principal_amount - paid_principal') })
+        .whereIn('status', ['active', 'overdue'])
+        .first()
+
+      const snapshot = {
+        snapshot_month: monthStart,
+        opening_cash: Number(cashOpen?.balance_after ?? 0),
+        closing_cash: Number(cashClose?.balance_after ?? 0),
+        total_loan_out: Number(loanStats?.total_loan_out ?? 0),
+        total_collected: Number(payStats?.total_collected ?? 0),
+        interest_collected: Number(payStats?.interest_collected ?? 0),
+        principal_collected: Number(payStats?.principal_collected ?? 0),
+        outstanding_principal: Number(outstandingRow?.total ?? 0),
+        new_bad_debt: Number(badDebtStats?.total ?? 0),
+        net_profit: Number(payStats?.interest_collected ?? 0),
+        active_loans_count: 0,
+        new_loans_count: Number(loanStats?.new_loans_count ?? 0),
+        closed_loans_count: Number(closedStats?.cnt ?? 0),
+        collection_rate: 0,
+      }
+
+      await db('monthly_snapshots')
+        .insert(snapshot)
+        .onConflict('snapshot_month')
+        .merge()
+
+      generated++
+    }
+
+    res.json({ success: true, data: { generated, months: allMonths } })
+  } catch (err) {
+    next(err)
+  }
+})
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 router.get('/settings', authenticate, async (_req, res, next) => {
   try {

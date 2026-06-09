@@ -28,19 +28,15 @@ export const dashboardRepo = {
       db('bad_debts').where('is_recovered', false).select(db.raw('COUNT(*) AS count'), db.raw('SUM(total_lost) AS amount')).first(),
       // Active count
       db('loans').whereIn('status', ['active', 'overdue']).count('id as count').first(),
-      // Profit today — single/installment/flexible only (daily excluded)
-      db('payments as p')
-        .join('loans as l', 'l.id', 'p.loan_id')
-        .sum('p.interest_paid as total')
-        .whereRaw("p.payment_date::date = ?::date", [today])
-        .whereNot('l.loan_type', 'daily')
+      // Profit today — single/installment/flexible only (daily excluded via loan_type column)
+      db('payments').sum('interest_paid as total')
+        .whereRaw("payment_date::date = ?::date", [today])
+        .where((q) => q.whereNot('loan_type', 'daily').orWhereNull('loan_type'))
         .first(),
-      // Profit this month — single/installment/flexible only (daily excluded)
-      db('payments as p')
-        .join('loans as l', 'l.id', 'p.loan_id')
-        .sum('p.interest_paid as total')
-        .whereRaw("p.payment_date::date >= ?::date", [monthStart])
-        .whereNot('l.loan_type', 'daily')
+      // Profit this month — single/installment/flexible only (daily excluded via loan_type column)
+      db('payments').sum('interest_paid as total')
+        .whereRaw("payment_date::date >= ?::date", [monthStart])
+        .where((q) => q.whereNot('loan_type', 'daily').orWhereNull('loan_type'))
         .first(),
       // Expected profit
       db('loans').sum({ total: db.raw('(total_amount - principal_amount) - paid_interest') }).whereIn('status', ['active', 'overdue']).first(),

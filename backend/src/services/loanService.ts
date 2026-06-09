@@ -177,6 +177,7 @@ export const loanService = {
         payment_number: paymentNumber,
         loan_id: loanId,
         installment_id: installmentId ?? null,
+        loan_type: loan.loan_type,
         amount,
         principal_paid: principalPaid,
         interest_paid: interestPaid,
@@ -188,9 +189,16 @@ export const loanService = {
         created_by: createdBy,
       }).returning('*')
 
-      // Update loan paid totals
-      const newPaidPrincipal = Number(loan.paid_principal) + principalPaid
-      const newPaidInterest = Number(loan.paid_interest) + interestPaid
+      // Recalculate paid totals from DB (self-healing — avoids drift from manual edits)
+      const paidTotals = await trx('payments')
+        .where({ loan_id: loanId })
+        .select(
+          trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
+          trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
+        )
+        .first()
+      const newPaidPrincipal = Number(paidTotals?.paid_principal ?? 0)
+      const newPaidInterest = Number(paidTotals?.paid_interest ?? 0)
 
       // Check if all installments paid
       let newPaidInstallments = loan.paid_installments
@@ -242,14 +250,15 @@ export const loanService = {
         })
       }
 
-      // Cash in transaction
+      // Cash in transaction — net of over_payment (change given back to customer)
+      const netReceived = amount - overPayment
       const txnNumber = await generateTxnNumber()
       await trx('cash_transactions').insert({
         txn_number: txnNumber,
         txn_type: cashTxnType,
         direction: 'in',
-        amount,
-        balance_after: currentBalance + amount,
+        amount: netReceived,
+        balance_after: currentBalance + netReceived,
         loan_id: loanId,
         payment_id: payment.id,
         description: `รับชำระ ${paymentNumber}${paymentType === 'rollover' ? ' (ต่อดอก)' : ''}`,
