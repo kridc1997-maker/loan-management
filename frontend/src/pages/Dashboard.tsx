@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Wallet, TrendingUp, PiggyBank, BadgeDollarSign,
-  AlertTriangle, Skull, Users, CheckCircle, Phone,
+  AlertTriangle, Users, CheckCircle, Phone, Landmark,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -102,12 +102,11 @@ export default function Dashboard() {
           iconBg="bg-indigo-50"
         />
         <KpiCard
-          title="กำไรวันนี้"
-          value={formatCurrency(d.profitToday)}
-          sub={`รับมาทั้งหมด ${formatCurrency(d.receivedToday)}`}
-          icon={<TrendingUp size={18} className="text-green-600" />}
-          iconBg="bg-green-50"
-          trend={{ value: 'วันนี้', positive: true }}
+          title="ยอดรับคืนทั้งหมด"
+          value={formatCurrency(d.outstandingPrincipal + d.expectedProfit)}
+          sub="เงินต้นคงค้าง + กำไรคาดการณ์"
+          icon={<Landmark size={18} className="text-orange-600" />}
+          iconBg="bg-orange-50"
         />
       </div>
 
@@ -121,20 +120,20 @@ export default function Dashboard() {
           iconBg="bg-emerald-50"
         />
         <KpiCard
+          title="กำไรวันนี้"
+          value={formatCurrency(d.profitToday)}
+          sub={`รับมาทั้งหมด ${formatCurrency(d.receivedToday)}`}
+          icon={<TrendingUp size={18} className="text-green-600" />}
+          iconBg="bg-green-50"
+          trend={{ value: 'วันนี้', positive: true }}
+        />
+        <KpiCard
           title="ลูกหนี้ค้างชำระ"
           value={formatCurrency(d.overdueAmount)}
           sub={`${d.overdueCount} ราย`}
           icon={<AlertTriangle size={18} className="text-yellow-600" />}
           iconBg="bg-yellow-50"
           onClick={() => navigate('/overdue')}
-        />
-        <KpiCard
-          title="หนี้เสีย (Bad Debt)"
-          value={formatCurrency(d.badDebtAmount)}
-          sub={`${d.badDebtCount} ราย`}
-          icon={<Skull size={18} className="text-red-600" />}
-          iconBg="bg-red-50"
-          onClick={() => navigate('/bad-debt')}
         />
         <KpiCard
           title="Collection Rate"
