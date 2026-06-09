@@ -103,8 +103,8 @@ export default function Dashboard() {
         />
         <KpiCard
           title="ยอดรับคืนทั้งหมด"
-          value={formatCurrency(d.outstandingPrincipal + d.expectedProfit)}
-          sub="เงินต้นคงค้าง + กำไรคาดการณ์"
+          value={formatCurrency(d.cashOnHand + d.outstandingPrincipal + d.expectedProfit)}
+          sub="เงินสด + เงินต้นคงค้าง + กำไรคาดการณ์"
           icon={<Landmark size={18} className="text-orange-600" />}
           iconBg="bg-orange-50"
         />
