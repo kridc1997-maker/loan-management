@@ -250,15 +250,14 @@ export const loanService = {
         })
       }
 
-      // Cash in transaction — net of over_payment (change given back to customer)
-      const netReceived = amount - overPayment
+      // Cash in transaction — record full amount received (over_payment tracked in payment record)
       const txnNumber = await generateTxnNumber()
       await trx('cash_transactions').insert({
         txn_number: txnNumber,
         txn_type: cashTxnType,
         direction: 'in',
-        amount: netReceived,
-        balance_after: currentBalance + netReceived,
+        amount,
+        balance_after: currentBalance + amount,
         loan_id: loanId,
         payment_id: payment.id,
         description: `รับชำระ ${paymentNumber}${paymentType === 'rollover' ? ' (ต่อดอก)' : ''}`,
