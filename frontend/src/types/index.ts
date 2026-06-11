@@ -110,6 +110,7 @@ export interface Payment {
   amount: number
   principalPaid: number
   interestPaid: number
+  finePaid: number
   overPayment: number
   paymentDate: string
   paymentType: PaymentType
@@ -122,6 +123,7 @@ export interface PaymentForm {
   loanId: number
   installmentId?: number
   amount: number
+  finePaid?: number
   paymentType: PaymentType
   paymentMethod: PaymentMethod
   paymentDate: string

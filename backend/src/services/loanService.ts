@@ -25,6 +25,7 @@ interface ReceivePaymentInput {
   loanId: number
   installmentId?: number
   amount: number
+  finePaid?: number   // fine/penalty portion included in amount
   paymentType: PaymentType
   paymentMethod: PaymentMethod
   paymentDate: string
@@ -124,7 +125,9 @@ export const loanService = {
   },
 
   async receivePayment(input: ReceivePaymentInput) {
-    const { loanId, installmentId, amount, paymentType, paymentMethod, paymentDate, note, newDueDate, createdBy } = input
+    const { loanId, installmentId, amount, finePaid = 0, paymentType, paymentMethod, paymentDate, note, newDueDate, createdBy } = input
+
+    if (finePaid > amount) throw new AppError(400, 'ค่าปรับต้องไม่เกินยอดรับทั้งหมด')
 
     const loan = await loanRepo.findById(loanId)
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
@@ -145,16 +148,18 @@ export const loanService = {
       const remainingInterest = totalInterest - Number(loan.paid_interest)
       const remainingPrincipal = Number(loan.principal_amount) - Number(loan.paid_principal)
 
+      // loanAmount = portion of payment going toward principal/interest (excluding fine)
+      const loanAmount = amount - finePaid
+
       if (paymentType === 'rollover') {
-        // Full amount is interest — no cap against remainingInterest because a rollover
-        // can charge a different rate than the original contract
-        interestPaid = amount
+        // Full loan amount is interest — no cap because rollover can charge a different rate
+        interestPaid = loanAmount
         cashTxnType = 'interest_in'
       } else if (paymentType === 'full') {
         // Pay everything remaining
         interestPaid = remainingInterest
         principalPaid = remainingPrincipal
-        overPayment = Math.max(0, amount - remainingInterest - remainingPrincipal)
+        overPayment = Math.max(0, loanAmount - remainingInterest - remainingPrincipal)
         newLoanStatus = 'completed'
         cashTxnType = 'principal_in'
       } else if (installmentId) {
@@ -162,17 +167,17 @@ export const loanService = {
         const inst = await trx('loan_installments').where({ id: installmentId }).first()
         interestPaid = Math.min(Number(inst?.interest_portion ?? 0), remainingInterest)
         principalPaid = Math.min(Number(inst?.principal_portion ?? 0), remainingPrincipal)
-        overPayment = Math.max(0, amount - interestPaid - principalPaid)
+        overPayment = Math.max(0, loanAmount - interestPaid - principalPaid)
         cashTxnType = principalPaid > 0 ? 'principal_in' : 'interest_in'
       } else {
         // normal / partial (no installment ref) — allocate interest first, then principal
-        interestPaid = Math.min(amount, remainingInterest)
-        principalPaid = Math.min(amount - interestPaid, remainingPrincipal)
-        overPayment = Math.max(0, amount - interestPaid - principalPaid)
+        interestPaid = Math.min(loanAmount, remainingInterest)
+        principalPaid = Math.min(loanAmount - interestPaid, remainingPrincipal)
+        overPayment = Math.max(0, loanAmount - interestPaid - principalPaid)
         cashTxnType = principalPaid > 0 ? 'principal_in' : 'interest_in'
       }
 
-      // Insert payment
+      // Insert payment — amount = total cash received (loan + fine)
       const [payment] = await trx('payments').insert({
         payment_number: paymentNumber,
         loan_id: loanId,
@@ -181,6 +186,7 @@ export const loanService = {
         amount,
         principal_paid: principalPaid,
         interest_paid: interestPaid,
+        fine_paid: finePaid,
         over_payment: overPayment,
         payment_date: paymentDate,
         payment_type: paymentType,
@@ -341,6 +347,44 @@ export const loanService = {
     })
 
     // Read AFTER transaction commits so the updated loan_type is visible
+    return loanRepo.findById(loanId)
+  },
+
+  async adjustLoanAmounts(loanId: number, principalAmount: number, totalAmount: number, createdBy?: number) {
+    if (totalAmount < principalAmount) throw new AppError(400, 'ยอดรวมต้องมากกว่าหรือเท่ากับเงินต้น')
+
+    const loan = await loanRepo.findById(loanId)
+    if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
+    if (loan.loan_type !== 'single') throw new AppError(400, 'ใช้ได้เฉพาะสัญญาแบบครั้งเดียวเท่านั้น')
+    if (['completed', 'bad_debt', 'written_off'].includes(loan.status)) {
+      throw new AppError(400, 'ไม่สามารถแก้ไขสัญญาที่ปิดแล้วได้')
+    }
+    if (principalAmount < Number(loan.paid_principal)) {
+      throw new AppError(400, 'เงินต้นใหม่ต้องไม่น้อยกว่าที่ชำระแล้ว')
+    }
+    if (totalAmount < Number(loan.paid_principal) + Number(loan.paid_interest)) {
+      throw new AppError(400, 'ยอดรวมใหม่ต้องไม่น้อยกว่ายอดที่ชำระแล้วทั้งหมด')
+    }
+
+    const interestRate = (totalAmount - principalAmount) / principalAmount
+
+    await db.transaction(async (trx) => {
+      await trx('loans').where({ id: loanId }).update({
+        principal_amount: principalAmount,
+        total_amount: totalAmount,
+        interest_rate: interestRate,
+        updated_at: new Date(),
+      })
+      await trx('audit_logs').insert({
+        user_id: createdBy,
+        action: 'ADJUST_LOAN_AMOUNT',
+        entity_type: 'loan',
+        entity_id: loanId,
+        old_data: JSON.stringify({ principal_amount: loan.principal_amount, total_amount: loan.total_amount }),
+        new_data: JSON.stringify({ principal_amount: principalAmount, total_amount: totalAmount }),
+      })
+    })
+
     return loanRepo.findById(loanId)
   },
 

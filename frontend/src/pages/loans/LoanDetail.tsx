@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CreditCard, RefreshCw } from 'lucide-react'
+import { ArrowLeft, CreditCard, RefreshCw, Pencil } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
 import { formatCurrency, formatDate, isInstallmentBased, daysOverdue } from '../../utils/financial'
 import { loanApi, paymentApi } from '../../api/endpoints'
+import { useAppStore } from '../../stores/appStore'
 import type { Loan } from '../../types'
 
 const PAYMENT_TYPE_LABEL: Record<string, string> = {
@@ -24,9 +25,16 @@ const LOAN_TYPE_LABEL: Record<string, { label: string; cls: string }> = {
 export default function LoanDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { addToast } = useAppStore()
   const [loan, setLoan] = useState<Loan | null>(null)
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Adjust loan amounts (single type only)
+  const [showAdjustModal, setShowAdjustModal] = useState(false)
+  const [adjustPrincipal, setAdjustPrincipal] = useState('')
+  const [adjustTotal, setAdjustTotal] = useState('')
+  const [adjusting, setAdjusting] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -38,6 +46,24 @@ export default function LoanDetail() {
       setPayments(pRes.data.data ?? [])
     }).finally(() => setLoading(false))
   }, [id])
+
+  const handleAdjust = () => {
+    if (!loan || adjusting) return
+    const p = Number(adjustPrincipal)
+    const t = Number(adjustTotal)
+    if (!p || !t || p <= 0 || t <= 0) {
+      addToast('error', 'กรุณากรอกยอดให้ถูกต้อง')
+      return
+    }
+    setAdjusting(true)
+    loanApi.adjust(loan.id, { principalAmount: p, totalAmount: t }).then((res) => {
+      setLoan(res.data.data)
+      setShowAdjustModal(false)
+      addToast('success', 'แก้ไขยอดสัญญาสำเร็จ')
+    }).catch((err) => {
+      addToast('error', err?.response?.data?.error?.message ?? 'เกิดข้อผิดพลาด')
+    }).finally(() => setAdjusting(false))
+  }
 
   if (loading) {
     return (
@@ -98,15 +124,100 @@ export default function LoanDetail() {
         <button onClick={() => navigate(-1)} className="btn-secondary w-fit">
           <ArrowLeft size={15} /> กลับ
         </button>
-        {['active', 'overdue'].includes(loan.status) && (
-          <button
-            onClick={() => navigate('/payments', { state: { loanId: loan.id } })}
-            className="btn-primary"
-          >
-            <CreditCard size={15} /> บันทึกการชำระ
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {loan.loanType === 'single' && ['active', 'overdue'].includes(loan.status) && (
+            <button
+              onClick={() => {
+                setAdjustPrincipal(String(loan.principalAmount))
+                setAdjustTotal(String(loan.totalAmount))
+                setShowAdjustModal(true)
+              }}
+              className="btn-secondary w-fit"
+            >
+              <Pencil size={14} /> แก้ไขยอด
+            </button>
+          )}
+          {['active', 'overdue'].includes(loan.status) && (
+            <button
+              onClick={() => navigate('/payments', { state: { loanId: loan.id } })}
+              className="btn-primary"
+            >
+              <CreditCard size={15} /> บันทึกการชำระ
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Adjust amounts modal (single type only) */}
+      {showAdjustModal && loan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <Pencil size={18} className="text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">แก้ไขยอดสัญญา</h3>
+                <p className="text-xs text-gray-500">{loan.loanNumber} · เฉพาะครั้งเดียวเท่านั้น</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-gray-50 rounded-xl text-xs space-y-1 text-gray-500">
+              <div className="flex justify-between">
+                <span>เงินต้นปัจจุบัน</span>
+                <span className="font-semibold text-gray-700">{formatCurrency(loan.principalAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ดอกเบี้ยปัจจุบัน</span>
+                <span className="font-semibold text-green-600">{formatCurrency(loan.interestAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>ยอดรวมปัจจุบัน</span>
+                <span className="font-semibold text-gray-700">{formatCurrency(loan.totalAmount)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="label">เงินต้นใหม่ (฿)</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={adjustPrincipal}
+                  onChange={(e) => setAdjustPrincipal(e.target.value)}
+                  min={loan.paidPrincipal}
+                />
+              </div>
+              <div>
+                <label className="label">ยอดรวมใหม่ (ต้น+ดอก) (฿)</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={adjustTotal}
+                  onChange={(e) => setAdjustTotal(e.target.value)}
+                  min={Number(adjustPrincipal) || 0}
+                />
+                {Number(adjustTotal) > 0 && Number(adjustPrincipal) > 0 && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    ดอกเบี้ยใหม่ = {formatCurrency(Number(adjustTotal) - Number(adjustPrincipal))}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowAdjustModal(false)} className="btn-secondary flex-1 justify-center">ยกเลิก</button>
+              <button
+                onClick={handleAdjust}
+                disabled={adjusting || !adjustPrincipal || !adjustTotal}
+                className="flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              >
+                {adjusting ? 'กำลังบันทึก...' : 'ยืนยัน'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loan summary card */}
       <div className="card space-y-4">
@@ -212,6 +323,9 @@ export default function LoanDetail() {
                     <p className="text-sm font-bold text-gray-900">{formatCurrency(Number(p.amount))}</p>
                     <p className="text-xs text-gray-400">
                       ต้น {formatCurrency(Number(p.principal_paid))} · ดอก {formatCurrency(Number(p.interest_paid))}
+                      {Number(p.fine_paid) > 0 && (
+                        <span className="text-amber-600"> · ค่าปรับ {formatCurrency(Number(p.fine_paid))}</span>
+                      )}
                     </p>
                   </div>
                 </div>

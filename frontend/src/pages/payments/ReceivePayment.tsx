@@ -34,6 +34,7 @@ export default function ReceivePayment() {
   const [paymentDate, setPaymentDate] = useState(todayInputDate())
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash')
   const [note, setNote] = useState('')
+  const [fineAmount, setFineAmount] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -122,12 +123,17 @@ export default function ReceivePayment() {
     }).finally(() => setConverting(false))
   }
 
+  const fine = Number(fineAmount) || 0
+  const totalReceived = (Number(amount) || 0) + fine
+
   const handleSubmit = () => {
-    if (!selectedLoan || !amount || submitting) return
+    if (!selectedLoan || submitting) return
+    if (totalReceived <= 0) return
     setSubmitting(true)
 
     const payload = {
-      amount: Number(amount),
+      amount: totalReceived,
+      ...(fine > 0 ? { finePaid: fine } : {}),
       paymentType,
       paymentMethod,
       paymentDate,
@@ -137,14 +143,14 @@ export default function ReceivePayment() {
     }
 
     loanApi.payment(selectedLoan.id, payload as any).then(() => {
-      const a = Number(amount)
+      const fineStr = fine > 0 ? ` (ค่าปรับ ${formatCurrency(fine)})` : ''
       let msg = ''
       if (paymentType === 'rollover') {
-        msg = `ต่อดอก ${formatCurrency(a)} จากสัญญา ${selectedLoan.loanNumber} สำเร็จ!`
+        msg = `ต่อดอก ${formatCurrency(Number(amount))} จากสัญญา ${selectedLoan.loanNumber} สำเร็จ!${fineStr}`
       } else if (paymentType === 'full') {
-        msg = `ปิดสัญญา ${selectedLoan.loanNumber} เรียบร้อย! รับ ${formatCurrency(a)}`
+        msg = `ปิดสัญญา ${selectedLoan.loanNumber} เรียบร้อย! รับ ${formatCurrency(totalReceived)}${fineStr}`
       } else {
-        msg = `รับชำระ ${formatCurrency(a)} จาก ${selectedLoan.customerName} สำเร็จ!`
+        msg = `รับชำระ ${formatCurrency(totalReceived)} จาก ${selectedLoan.customerName} สำเร็จ!${fineStr}`
       }
       addToast('success', msg)
       window.dispatchEvent(new Event('header-refresh'))
@@ -170,6 +176,7 @@ export default function ReceivePayment() {
               setSelectedLoan(undefined)
               setInstallments([])
               setAmount('')
+              setFineAmount('')
               setSearch('')
               setSearchResults([])
             }}
@@ -447,7 +454,7 @@ export default function ReceivePayment() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">ยอดที่รับจริง (฿) *</label>
+              <label className="label">ยอดชำระสัญญา (ต้น+ดอก) (฿) *</label>
               <input
                 type="number"
                 className="input"
@@ -471,6 +478,31 @@ export default function ReceivePayment() {
             </div>
           </div>
 
+          {/* Fine / Penalty field */}
+          <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="label mb-0">ค่าปรับ (฿)</label>
+              {fine > 0 && (
+                <span className="text-xs text-amber-700 font-medium">
+                  รวมรับ {formatCurrency(totalReceived)}
+                </span>
+              )}
+            </div>
+            <input
+              type="number"
+              className="input bg-white"
+              placeholder="0 (ไม่มีค่าปรับ)"
+              value={fineAmount}
+              onChange={(e) => setFineAmount(e.target.value)}
+              min="0"
+            />
+            {fine > 0 && (
+              <p className="text-xs text-amber-600">
+                ค่าปรับนับเป็นกำไร · ยอดชำระสัญญา {formatCurrency(Number(amount) || 0)} + ค่าปรับ {formatCurrency(fine)}
+              </p>
+            )}
+          </div>
+
           <div>
             <label className="label">ช่องทางการรับ</label>
             <div className="flex gap-3">
@@ -491,10 +523,10 @@ export default function ReceivePayment() {
 
           <button
             onClick={handleSubmit}
-            disabled={!amount || Number(amount) <= 0 || submitting}
+            disabled={totalReceived <= 0 || submitting}
             className="btn-primary w-full justify-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <CheckCircle size={16} /> {submitting ? 'กำลังบันทึก...' : 'บันทึกการรับชำระ'}
+            <CheckCircle size={16} /> {submitting ? 'กำลังบันทึก...' : `บันทึกการรับชำระ ${totalReceived > 0 ? formatCurrency(totalReceived) : ''}`}
           </button>
         </div>
       )}

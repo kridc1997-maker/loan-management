@@ -93,9 +93,9 @@ export const mockLoans: Loan[] = [
 ]
 
 export const mockPayments: Payment[] = [
-  { id: 1, paymentNumber: 'PAY-20240608-001', loanId: 1, loanNumber: 'LN-20240607-001', customerName: 'สมชาย ใจดี', installmentId: 1, amount: 1250, principalPaid: 1000, interestPaid: 250, overPayment: 0, paymentDate: '2024-06-08', paymentType: 'normal', paymentMethod: 'cash', createdAt: '2024-06-08T10:00:00Z' },
-  { id: 2, paymentNumber: 'PAY-20240609-002', loanId: 1, loanNumber: 'LN-20240607-001', customerName: 'สมชาย ใจดี', installmentId: 2, amount: 1250, principalPaid: 1000, interestPaid: 250, overPayment: 0, paymentDate: '2024-06-09', paymentType: 'normal', paymentMethod: 'cash', createdAt: '2024-06-09T10:00:00Z' },
-  { id: 3, paymentNumber: 'PAY-20240607-003', loanId: 5, loanNumber: 'LN-20240605-005', customerName: 'วิชัย มาดี', installmentId: undefined, amount: 1250, principalPaid: 1000, interestPaid: 250, overPayment: 0, paymentDate: '2024-06-07', paymentType: 'normal', paymentMethod: 'cash', createdAt: '2024-06-07T14:00:00Z' },
+  { id: 1, paymentNumber: 'PAY-20240608-001', loanId: 1, loanNumber: 'LN-20240607-001', customerName: 'สมชาย ใจดี', installmentId: 1, amount: 1250, principalPaid: 1000, interestPaid: 250, finePaid: 0, overPayment: 0, paymentDate: '2024-06-08', paymentType: 'normal', paymentMethod: 'cash', createdAt: '2024-06-08T10:00:00Z' },
+  { id: 2, paymentNumber: 'PAY-20240609-002', loanId: 1, loanNumber: 'LN-20240607-001', customerName: 'สมชาย ใจดี', installmentId: 2, amount: 1250, principalPaid: 1000, interestPaid: 250, finePaid: 0, overPayment: 0, paymentDate: '2024-06-09', paymentType: 'normal', paymentMethod: 'cash', createdAt: '2024-06-09T10:00:00Z' },
+  { id: 3, paymentNumber: 'PAY-20240607-003', loanId: 5, loanNumber: 'LN-20240605-005', customerName: 'วิชัย มาดี', installmentId: undefined, amount: 1250, principalPaid: 1000, interestPaid: 250, finePaid: 0, overPayment: 0, paymentDate: '2024-06-07', paymentType: 'normal', paymentMethod: 'cash', createdAt: '2024-06-07T14:00:00Z' },
 ]
 
 export const mockBadDebts: BadDebt[] = [

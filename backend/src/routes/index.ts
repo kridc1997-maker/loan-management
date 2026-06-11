@@ -75,6 +75,7 @@ router.post('/loans/:id/rollover', authenticate, loanController.rollover)
 router.post('/loans/:id/mark-bad-debt', authenticate, loanController.markBadDebt)
 router.post('/loans/:id/convert-to-flexible', authenticate, loanController.convertToFlexible)
 router.put('/loans/:id/due-date', authenticate, loanController.updateDueDate)
+router.put('/loans/:id/adjust', authenticate, loanController.adjustAmounts)
 
 // ─── Payments ─────────────────────────────────────────────────────────────────
 router.get('/payments', authenticate, async (req, res, next) => {

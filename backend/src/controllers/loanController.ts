@@ -20,11 +20,17 @@ const createLoanSchema = z.object({
 const paymentSchema = z.object({
   installmentId: z.number().int().optional(),
   amount: z.number().positive('ยอดชำระต้องมากกว่า 0'),
+  finePaid: z.number().min(0).default(0).optional(),
   paymentType: z.enum(['normal', 'partial', 'rollover', 'full', 'bad_debt_recover']),
   paymentMethod: z.enum(['cash', 'transfer', 'other']).default('cash'),
   paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   note: z.string().optional(),
   newDueDate: z.string().optional(),
+})
+
+const adjustAmountsSchema = z.object({
+  principalAmount: z.number().positive('เงินต้นต้องมากกว่า 0'),
+  totalAmount: z.number().positive('ยอดรวมต้องมากกว่า 0'),
 })
 
 const rolloverSchema = z.object({
@@ -147,6 +153,21 @@ export const loanController = {
       const { reason } = req.body
       const result = await loanService.markAsBadDebt(Number(req.params.id), reason ?? '', req.user?.userId)
       res.status(201).json({ success: true, data: result })
+    } catch (err) {
+      next(err)
+    }
+  },
+
+  async adjustAmounts(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const body = adjustAmountsSchema.parse(req.body)
+      const result = await loanService.adjustLoanAmounts(
+        Number(req.params.id),
+        body.principalAmount,
+        body.totalAmount,
+        req.user?.userId,
+      )
+      res.json({ success: true, data: camelize(result) })
     } catch (err) {
       next(err)
     }
