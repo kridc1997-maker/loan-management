@@ -116,9 +116,9 @@ function camelizeLoan(r: any) {
     paidInstallments: r.paid_installments,
     paidPrincipal: Number(r.paid_principal),
     paidInterest: Number(r.paid_interest),
-    issuedDate: String(r.issued_date).slice(0, 10),
-    dueDate: String(r.due_date).slice(0, 10),
-    closedDate: r.closed_date ? String(r.closed_date).slice(0, 10) : null,
+    issuedDate: r.issued_date,
+    dueDate: r.due_date,
+    closedDate: r.closed_date ?? null,
     status: r.status, note: r.note,
     createdAt: r.created_at,
   }
