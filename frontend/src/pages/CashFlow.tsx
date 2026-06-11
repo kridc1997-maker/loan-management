@@ -102,7 +102,7 @@ export default function CashFlow() {
     try {
       setSaving(true); setErr('')
       await cashApi.adjust({ type: txnType, amount: num, description: desc, txnDate })
-      addToast('success', `${txnLabel(txnType)} ฿${formatCurrency(num)} เรียบร้อย`)
+      addToast('success', `${txnLabel(txnType)} ${formatCurrency(num)} เรียบร้อย`)
       window.dispatchEvent(new Event('header-refresh'))
       closeModal(); loadBalance(); loadCashFlow()
     } catch (e: any) {
@@ -116,7 +116,7 @@ export default function CashFlow() {
     try {
       setSaving(true); setErr('')
       await cashApi.setBalance(num, desc || 'ตั้งยอดเงินสดเริ่มต้น')
-      addToast('success', `ตั้งยอดเงินสดเป็น ฿${formatCurrency(num)} เรียบร้อย`)
+      addToast('success', `ตั้งยอดเงินสดเป็น ${formatCurrency(num)} เรียบร้อย`)
       window.dispatchEvent(new Event('header-refresh'))
       closeModal(); loadBalance(); loadCashFlow()
     } catch (e: any) {
@@ -160,7 +160,7 @@ export default function CashFlow() {
                 <div className="h-8 w-40 rounded-lg mt-1 animate-pulse" style={{ background: 'rgba(255,255,255,0.15)' }} />
               ) : (
                 <p className="text-3xl font-black text-white mt-0.5 tabular-nums">
-                  ฿{formatCurrency(currentBalance)}
+                  {formatCurrency(currentBalance)}
                 </p>
               )}
             </div>
@@ -199,7 +199,7 @@ export default function CashFlow() {
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs"
                   style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.85)' }}>
                   <span className={t.direction === 'in' ? 'text-green-300' : 'text-red-300'}>
-                    {t.direction === 'in' ? '+' : '-'}฿{formatCurrency(Number(t.amount))}
+                    {t.direction === 'in' ? '+' : '-'}{formatCurrency(Number(t.amount))}
                   </span>
                   <span style={{ color: 'rgba(255,255,255,0.45)' }}>·</span>
                   <span style={{ color: 'rgba(255,255,255,0.55)' }}>{txnLabel(t.txn_type)}</span>
@@ -343,7 +343,7 @@ export default function CashFlow() {
                     {modalMode === 'set' ? 'ตั้งยอดเงินสดเริ่มต้น' : 'อัพเดตเงินสดในมือ'}
                   </h2>
                   <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                    ยอดปัจจุบัน ฿{formatCurrency(currentBalance)}
+                    ยอดปัจจุบัน {formatCurrency(currentBalance)}
                   </p>
                 </div>
               </div>
@@ -370,7 +370,7 @@ export default function CashFlow() {
                     {targetBalance !== '' && !isNaN(parseFloat(targetBalance)) && (
                       <p className="text-xs mt-1.5 font-medium text-purple-700">
                         ปรับ{parseFloat(targetBalance) >= currentBalance ? 'เพิ่ม' : 'ลด'}
-                        {' '}฿{formatCurrency(Math.abs(parseFloat(targetBalance) - currentBalance))}
+                        {' '}{formatCurrency(Math.abs(parseFloat(targetBalance) - currentBalance))}
                         {' '}จากยอดปัจจุบัน
                       </p>
                     )}
@@ -426,7 +426,7 @@ export default function CashFlow() {
                     </div>
                     {amount && !isNaN(parseFloat(amount)) && (
                       <p className="text-xs mt-1.5 font-medium" style={{ color: selectedType.color }}>
-                        ยอดหลังอัพเดต: ฿{formatCurrency(
+                        ยอดหลังอัพเดต: {formatCurrency(
                           selectedType.dir === 'in' ? currentBalance + parseFloat(amount) : currentBalance - parseFloat(amount)
                         )}
                       </p>
