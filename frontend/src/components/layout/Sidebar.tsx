@@ -44,22 +44,10 @@ export default function Sidebar() {
         className="flex items-center gap-3 border-b px-3 py-4"
         style={{ borderColor: 'rgba(255,255,255,0.08)' }}
       >
-        {/* Logo icon / image */}
-        <div className="flex-shrink-0 w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-white/10">
-          <img
-            src="/kfl-logo.png"
-            alt="KFL"
-            className="w-8 h-8 object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-              if (e.currentTarget.nextElementSibling) {
-                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'
-              }
-            }}
-          />
-          {/* Fallback text logo */}
+        {/* KFL text logo */}
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center bg-white/10">
           <span
-            className="hidden text-xs font-black leading-none"
+            className="text-xs font-black leading-none"
             style={{
               background: 'linear-gradient(135deg, #42A5F5, #66BB6A, #FF7043)',
               WebkitBackgroundClip: 'text',
@@ -72,9 +60,9 @@ export default function Sidebar() {
 
         {sidebarOpen && (
           <div className="min-w-0 overflow-hidden">
-            <p className="text-sm font-bold text-white truncate tracking-wide">KFL</p>
+            <p className="text-sm font-bold text-white truncate tracking-wide">Krit Friend Loan</p>
             <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>
-              Krit Frind Loan
+              ระบบจัดการสินเชื่อ
             </p>
           </div>
         )}
