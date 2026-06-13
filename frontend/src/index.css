@@ -115,6 +115,8 @@
 ::-webkit-scrollbar-thumb:hover { background: #1565C0; }
 
 /* ── Dark mode ────────────────────────────────────────────────────────────── */
+/* dark class is on <html>, so html.dark → everything inside gets dark */
+.dark,
 .dark body {
   background-color: #0F172A;
   color: #E2E8F0;
@@ -165,13 +167,31 @@
 .dark .divide-gray-50  > * + * { border-color: #293548; }
 .dark .divide-gray-100 > * + * { border-color: #334155; }
 
-/* Text */
+/* Text — gray scale */
 .dark .text-gray-900 { color: #F1F5F9; }
 .dark .text-gray-800 { color: #E2E8F0; }
 .dark .text-gray-700 { color: #CBD5E1; }
 .dark .text-gray-600 { color: #94A3B8; }
 .dark .text-gray-500 { color: #64748B; }
 .dark .text-gray-400 { color: #94A3B8; }
+
+/* Text — colored dark variants → light equivalents (badge/chip readability) */
+.dark .text-blue-800,
+.dark .text-blue-700   { color: #93C5FD; }
+.dark .text-green-800,
+.dark .text-green-700  { color: #86EFAC; }
+.dark .text-red-800,
+.dark .text-red-700    { color: #FCA5A5; }
+.dark .text-orange-800,
+.dark .text-orange-700 { color: #FDBA74; }
+.dark .text-yellow-800,
+.dark .text-yellow-700 { color: #FDE68A; }
+.dark .text-amber-800,
+.dark .text-amber-700  { color: #FCD34D; }
+.dark .text-purple-800,
+.dark .text-purple-700 { color: #D8B4FE; }
+.dark .text-indigo-800,
+.dark .text-indigo-700 { color: #A5B4FC; }
 
 /* Scrollbar in dark mode */
 .dark ::-webkit-scrollbar-track { background: #1E293B; }

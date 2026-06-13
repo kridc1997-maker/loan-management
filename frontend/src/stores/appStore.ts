@@ -2,7 +2,11 @@ import { create } from 'zustand'
 import type { Toast } from '../types'
 
 const getInitialDark = () => {
-  try { return localStorage.getItem('kfl-dark') === '1' } catch { return false }
+  try {
+    const isDark = localStorage.getItem('kfl-dark') === '1'
+    if (isDark) document.documentElement.classList.add('dark')
+    return isDark
+  } catch { return false }
 }
 
 interface AppStore {
@@ -25,6 +29,7 @@ export const useAppStore = create<AppStore>((set) => ({
   toggleDarkMode: () => set((s) => {
     const next = !s.darkMode
     try { localStorage.setItem('kfl-dark', next ? '1' : '0') } catch {}
+    document.documentElement.classList.toggle('dark', next)
     return { darkMode: next }
   }),
 
