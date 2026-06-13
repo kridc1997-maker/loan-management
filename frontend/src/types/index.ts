@@ -40,6 +40,7 @@ export interface CustomerForm {
   occupation?: string
   lineId?: string
   note?: string
+  riskLevel?: string
 }
 
 // ─── Loan ────────────────────────────────────────────────────────────────────

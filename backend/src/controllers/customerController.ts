@@ -63,6 +63,7 @@ export const customerController = {
         occupation: body.occupation,
         line_id: body.lineId,
         note: body.note,
+        risk_level: (body.riskLevel as any) ?? 'normal',
         created_by: req.user?.userId,
       })
       res.status(201).json({ success: true, data: camelizeCustomer(row) })

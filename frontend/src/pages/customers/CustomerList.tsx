@@ -23,6 +23,7 @@ function CustomerForm({ onClose, onSubmit, initialData }: {
     occupation: initialData?.occupation ?? '',
     lineId: initialData?.lineId ?? '',
     note: initialData?.note ?? '',
+    riskLevel: initialData?.riskLevel ?? 'normal',
   })
 
   const set = (k: keyof CustomerForm, v: string) => setForm((f) => ({ ...f, [k]: v }))
@@ -66,6 +67,15 @@ function CustomerForm({ onClose, onSubmit, initialData }: {
           <label className="label">LINE ID</label>
           <input className="input" placeholder="@line_id" value={form.lineId} onChange={(e) => set('lineId', e.target.value)} />
         </div>
+      </div>
+      <div>
+        <label className="label">ระดับความเสี่ยง</label>
+        <select className="input" value={form.riskLevel ?? 'normal'} onChange={(e) => set('riskLevel', e.target.value)}>
+          <option value="low">ความเสี่ยงต่ำ</option>
+          <option value="normal">ปกติ</option>
+          <option value="high">ความเสี่ยงสูง</option>
+          <option value="blacklist">Blacklist</option>
+        </select>
       </div>
       <div>
         <label className="label">หมายเหตุ</label>
