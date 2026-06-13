@@ -1,17 +1,15 @@
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, FilePlus, FileText, CreditCard,
+  LayoutDashboard, Users, FileText, CreditCard,
   AlertTriangle, Skull, TrendingUp, BarChart2, Settings, ChevronRight, UserCog,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
-import { useAuthStore } from '../../stores/authStore'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { divider: 'ลูกค้า' },
   { to: '/customers', label: 'รายชื่อลูกค้า', icon: Users },
   { divider: 'สินเชื่อ' },
-  { to: '/loans/new', label: 'สร้างสัญญาใหม่', icon: FilePlus, adminOnly: true },
   { to: '/loans', label: 'สัญญาที่ Active', icon: FileText },
   { to: '/loans/installments', label: 'ตารางผ่อนชำระ', icon: CreditCard },
   { divider: 'การเงิน' },
@@ -27,12 +25,10 @@ const navItems = [
 
 type NavItem =
   | { divider: string }
-  | { to: string; label: string; icon: React.ElementType; end?: boolean; adminOnly?: boolean }
+  | { to: string; label: string; icon: React.ElementType; end?: boolean }
 
 export default function Sidebar() {
   const { sidebarOpen } = useAppStore()
-  const { user } = useAuthStore()
-  const isAdmin = user?.role === 'admin'
 
   return (
     <aside
@@ -74,7 +70,6 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
         {(navItems as unknown as NavItem[]).map((item, idx) => {
-          if ('to' in item && item.adminOnly && !isAdmin) return null
           if ('divider' in item) {
             return sidebarOpen ? (
               <p
