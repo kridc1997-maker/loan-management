@@ -28,17 +28,15 @@ export const dashboardRepo = {
       db('bad_debts').where('is_recovered', false).select(db.raw('COUNT(*) AS count'), db.raw('SUM(total_lost) AS amount')).first(),
       // Active count
       db('loans').whereIn('status', ['active', 'overdue']).count('id as count').first(),
-      // Profit today — interest + fine (daily loans excluded via loan_type column)
+      // Profit today — sum interest_paid + fine_paid across all loan types
       db('payments')
         .select(db.raw('COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) as total'))
         .whereRaw("payment_date::date = ?::date", [today])
-        .where((q) => q.whereNot('loan_type', 'daily').orWhereNull('loan_type'))
         .first(),
-      // Profit this month — interest + fine (daily loans excluded via loan_type column)
+      // Profit this month — sum interest_paid + fine_paid across all loan types
       db('payments')
         .select(db.raw('COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) as total'))
         .whereRaw("payment_date::date >= ?::date", [monthStart])
-        .where((q) => q.whereNot('loan_type', 'daily').orWhereNull('loan_type'))
         .first(),
       // Expected profit
       db('loans').sum({ total: db.raw('(total_amount - principal_amount) - paid_interest') }).whereIn('status', ['active', 'overdue']).first(),
