@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle, Pencil } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
 import Modal from '../../components/ui/Modal'
+import LoanConfirmModal, { needsLoanConfirm } from '../../components/ui/LoanConfirmModal'
 import { formatCurrency, formatDate, isInstallmentBased } from '../../utils/financial'
 import { customerApi } from '../../api/endpoints'
 import { useAppStore } from '../../stores/appStore'
@@ -54,6 +55,7 @@ export default function CustomerDetail() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [showLoanConfirm, setShowLoanConfirm] = useState(false)
   const [editForm, setEditForm] = useState<CustomerForm & { riskLevel: string }>({
     firstName: '', lastName: '', phone: '', idCard: '', address: '', occupation: '', lineId: '', note: '', riskLevel: 'normal',
   })
@@ -155,7 +157,13 @@ export default function CustomerDetail() {
               <Pencil size={15} /> แก้ไข
             </button>
             <button
-              onClick={() => navigate('/loans/new', { state: { customerId: customer.id, customerName: `${customer.firstName} ${customer.lastName}` } })}
+              onClick={() => {
+                if (needsLoanConfirm(customer)) {
+                  setShowLoanConfirm(true)
+                } else {
+                  navigate('/loans/new', { state: { customerId: customer.id, customerName: `${customer.firstName} ${customer.lastName}` } })
+                }
+              }}
               className="btn-primary"
             >
               <FilePlus size={15} /> ปล่อยกู้
@@ -279,6 +287,15 @@ export default function CustomerDetail() {
           </div>
         )}
       </div>
+
+      <LoanConfirmModal
+        customer={showLoanConfirm ? customer : null}
+        onClose={() => setShowLoanConfirm(false)}
+        onConfirmed={() => {
+          setShowLoanConfirm(false)
+          navigate('/loans/new', { state: { customerId: customer.id, customerName: `${customer.firstName} ${customer.lastName}` } })
+        }}
+      />
 
       <Modal open={showEdit} onClose={() => setShowEdit(false)} title="แก้ไขข้อมูลลูกค้า" size="lg">
         <form onSubmit={handleEditSave} className="space-y-4">

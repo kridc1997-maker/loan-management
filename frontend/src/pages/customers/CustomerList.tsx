@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Phone, ChevronRight, FilePlus, Pencil } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
+import LoanConfirmModal, { needsLoanConfirm } from '../../components/ui/LoanConfirmModal'
 import StatusBadge from '../../components/ui/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
 import { formatCurrency } from '../../utils/financial'
@@ -96,6 +97,7 @@ export default function CustomerList() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
   const [editCustomer, setEditCustomer] = useState<Customer | null>(null)
+  const [loanConfirmCustomer, setLoanConfirmCustomer] = useState<Customer | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -272,7 +274,13 @@ export default function CustomerList() {
                           <Pencil size={15} />
                         </button>
                         <button
-                          onClick={() => navigate(`/loans/new`, { state: { customerId: c.id, customerName: `${c.firstName} ${c.lastName}` } })}
+                          onClick={() => {
+                            if (needsLoanConfirm(c)) {
+                              setLoanConfirmCustomer(c)
+                            } else {
+                              navigate(`/loans/new`, { state: { customerId: c.id, customerName: `${c.firstName} ${c.lastName}` } })
+                            }
+                          }}
                           className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
                           title="ปล่อยกู้"
                         >
@@ -293,6 +301,17 @@ export default function CustomerList() {
           </table>
         </div>
       </div>
+
+      <LoanConfirmModal
+        customer={loanConfirmCustomer}
+        onClose={() => setLoanConfirmCustomer(null)}
+        onConfirmed={() => {
+          if (!loanConfirmCustomer) return
+          const c = loanConfirmCustomer
+          setLoanConfirmCustomer(null)
+          navigate(`/loans/new`, { state: { customerId: c.id, customerName: `${c.firstName} ${c.lastName}` } })
+        }}
+      />
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="เพิ่มลูกค้าใหม่" size="lg">
         <CustomerForm onClose={() => setShowAdd(false)} onSubmit={handleAdd} />
