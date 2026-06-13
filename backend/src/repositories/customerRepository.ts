@@ -11,7 +11,7 @@ export const customerRepo = {
         'c.*',
         db.raw(`(SELECT COUNT(*) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')) AS active_loans_count`),
         db.raw(`COALESCE((SELECT SUM(l2.total_amount - l2.paid_principal - l2.paid_interest) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')), 0) AS total_outstanding`),
-        db.raw(`CASE WHEN (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id) = 0 THEN NULL ELSE (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.status = 'paid')::decimal / (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id) END AS collection_rate`),
+        db.raw(`CASE WHEN (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.due_date::date <= CURRENT_DATE) = 0 THEN NULL ELSE (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.due_date::date <= CURRENT_DATE AND li2.status IN ('paid','partial'))::decimal / (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.due_date::date <= CURRENT_DATE) END AS collection_rate`),
       )
       .orderBy(`c.${sortBy}`, order)
       .limit(limit)
@@ -52,7 +52,7 @@ export const customerRepo = {
         'c.*',
         db.raw(`(SELECT COUNT(*) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')) AS active_loans_count`),
         db.raw(`COALESCE((SELECT SUM(l2.total_amount - l2.paid_principal - l2.paid_interest) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')), 0) AS total_outstanding`),
-        db.raw(`CASE WHEN (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id) = 0 THEN NULL ELSE (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.status = 'paid')::decimal / (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id) END AS collection_rate`),
+        db.raw(`CASE WHEN (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.due_date::date <= CURRENT_DATE) = 0 THEN NULL ELSE (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.due_date::date <= CURRENT_DATE AND li2.status IN ('paid','partial'))::decimal / (SELECT COUNT(*) FROM loan_installments li2 JOIN loans l2 ON li2.loan_id = l2.id WHERE l2.customer_id = c.id AND li2.due_date::date <= CURRENT_DATE) END AS collection_rate`),
       )
       .where('c.id', id)
       .first()
@@ -81,5 +81,56 @@ export const customerRepo = {
       )
       .where({ customer_id: customerId })
       .orderBy('l.issued_date', 'desc')
+  },
+
+  async getPaymentStats(customerId: number) {
+    const row = await db('loan_installments as li')
+      .join('loans as l', 'l.id', 'li.loan_id')
+      .where('l.customer_id', customerId)
+      .whereRaw('li.due_date::date <= CURRENT_DATE')
+      .select(
+        db.raw('COUNT(*) as total_due'),
+        db.raw("COUNT(*) FILTER (WHERE li.status IN ('paid','partial')) as total_paid"),
+        db.raw("COUNT(*) FILTER (WHERE li.paid_date IS NOT NULL AND li.paid_date::date > li.due_date::date) as late_count"),
+        db.raw(`COALESCE(AVG(
+          CASE WHEN li.paid_date IS NOT NULL AND li.paid_date::date > li.due_date::date
+          THEN (li.paid_date::date - li.due_date::date) ELSE NULL END
+        ), 0) as avg_days_late`),
+      )
+      .first()
+
+    const totalDue = Number(row?.total_due ?? 0)
+    const totalPaid = Number(row?.total_paid ?? 0)
+    const lateCount = Number(row?.late_count ?? 0)
+    const avgDaysLate = Math.round(Number(row?.avg_days_late ?? 0))
+
+    // Late payment history
+    const latePayments = await db('loan_installments as li')
+      .join('loans as l', 'l.id', 'li.loan_id')
+      .where('l.customer_id', customerId)
+      .whereIn('li.status', ['paid', 'partial'])
+      .whereRaw('li.paid_date IS NOT NULL AND li.paid_date::date > li.due_date::date')
+      .select(
+        'li.id',
+        'li.installment_no',
+        db.raw("to_char(li.due_date, 'YYYY-MM-DD') as due_date"),
+        db.raw("to_char(li.paid_date, 'YYYY-MM-DD') as paid_date"),
+        db.raw('(li.paid_date::date - li.due_date::date) as days_late'),
+        'li.amount_due',
+        'li.paid_amount',
+        'l.loan_number',
+        'l.loan_type',
+        'l.id as loan_id',
+      )
+      .orderBy('li.paid_date', 'desc')
+
+    return {
+      totalDue,
+      totalPaid,
+      lateCount,
+      avgDaysLate,
+      collectionRate: totalDue > 0 ? totalPaid / totalDue : null,
+      latePayments,
+    }
   },
 }

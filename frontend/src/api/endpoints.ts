@@ -31,6 +31,7 @@ export const customerApi = {
   create: (data: CustomerForm) => api.post('/customers', data),
   update: (id: number, data: Partial<CustomerForm>) => api.put(`/customers/${id}`, data),
   loans: (id: number) => api.get(`/customers/${id}/loans`),
+  paymentStats: (id: number) => api.get(`/customers/${id}/payment-stats`),
 }
 
 // ─── Loans ────────────────────────────────────────────────────────────────────

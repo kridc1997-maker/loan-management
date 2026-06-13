@@ -1,10 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
 import { formatCurrency, formatPercent, formatDate, isInstallmentBased } from '../../utils/financial'
 import { customerApi } from '../../api/endpoints'
 import type { Customer, Loan } from '../../types'
+
+interface PaymentStats {
+  totalDue: number
+  totalPaid: number
+  lateCount: number
+  avgDaysLate: number
+  collectionRate: number | null
+  latePayments: {
+    id: number
+    loanNumber: string
+    loanType: string
+    loanId: number
+    installmentNo: number
+    dueDate: string
+    paidDate: string
+    daysLate: number
+    amountDue: number
+    paidAmount: number
+  }[]
+}
 
 const LOAN_TYPE_LABEL: Record<string, { label: string; cls: string }> = {
   single:      { label: 'ครั้งเดียว', cls: 'bg-gray-100 text-gray-600' },
@@ -18,6 +38,7 @@ export default function CustomerDetail() {
   const navigate = useNavigate()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loans, setLoans] = useState<Loan[]>([])
+  const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -26,9 +47,11 @@ export default function CustomerDetail() {
     Promise.all([
       customerApi.get(Number(id)),
       customerApi.loans(Number(id)),
-    ]).then(([cRes, lRes]) => {
+      customerApi.paymentStats(Number(id)),
+    ]).then(([cRes, lRes, sRes]) => {
       setCustomer(cRes.data.data)
       setLoans(lRes.data.data ?? [])
+      setPaymentStats(sRes.data.data)
     }).catch(() => {
       setNotFound(true)
     }).finally(() => setLoading(false))
@@ -116,7 +139,7 @@ export default function CustomerDetail() {
           { label: 'สัญญาทั้งหมด', value: String(loans.length), sub: 'ครั้ง' },
           { label: 'ยอดกู้สะสม', value: formatCurrency(totalBorrowed), sub: '' },
           { label: 'ดอกที่จ่ายแล้ว', value: formatCurrency(totalInterest), sub: '' },
-          { label: 'อัตราการชำระ', value: customer.collectionRate > 0 ? formatPercent(customer.collectionRate, 1) : '-', sub: '' },
+          { label: 'อัตราการชำระ', value: paymentStats?.collectionRate != null ? formatPercent(paymentStats.collectionRate, 1) : '-', sub: (paymentStats?.lateCount ?? 0) > 0 ? `ช้า ${paymentStats!.lateCount} งวด` : '' },
         ].map((s) => (
           <div key={s.label} className="card text-center py-4">
             <p className="text-xl font-bold text-gray-900">{s.value}</p>
@@ -180,6 +203,52 @@ export default function CustomerDetail() {
           </div>
         )}
       </div>
+
+      {paymentStats && paymentStats.lateCount > 0 && (
+        <div className="card">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle size={15} className="text-amber-500" />
+            <h2 className="text-sm font-semibold text-gray-900">ประวัติการค้างชำระ</h2>
+          </div>
+          <p className="text-xs text-gray-400 mb-4">
+            จ่ายช้า {paymentStats.lateCount} งวด · เฉลี่ย {paymentStats.avgDaysLate} วัน/งวด
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-100 text-gray-400">
+                  <th className="text-left pb-2 font-medium">สัญญา</th>
+                  <th className="text-left pb-2 font-medium">งวดที่</th>
+                  <th className="text-left pb-2 font-medium">ครบกำหนด</th>
+                  <th className="text-left pb-2 font-medium">จ่ายจริง</th>
+                  <th className="text-right pb-2 font-medium">ล่าช้า (วัน)</th>
+                  <th className="text-right pb-2 font-medium">ยอดชำระ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {paymentStats.latePayments.map((lp) => (
+                  <tr
+                    key={lp.id}
+                    className="hover:bg-amber-50/40 cursor-pointer"
+                    onClick={() => navigate(`/loans/${lp.loanId}`)}
+                  >
+                    <td className="py-2 font-mono text-gray-500">{lp.loanNumber}</td>
+                    <td className="py-2 text-gray-700">{lp.installmentNo}</td>
+                    <td className="py-2 text-gray-600">{formatDate(lp.dueDate)}</td>
+                    <td className="py-2 text-gray-600">{formatDate(lp.paidDate)}</td>
+                    <td className="py-2 text-right">
+                      <span className={`font-semibold ${lp.daysLate > 7 ? 'text-red-600' : 'text-amber-600'}`}>
+                        {lp.daysLate}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right text-gray-700">{formatCurrency(lp.paidAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -28,6 +28,7 @@ router.post('/customers', authenticate, customerController.create)
 router.get('/customers/:id', authenticate, customerController.get)
 router.put('/customers/:id', authenticate, customerController.update)
 router.get('/customers/:id/loans', authenticate, customerController.loans)
+router.get('/customers/:id/payment-stats', authenticate, customerController.paymentStats)
 
 // ─── Loans ────────────────────────────────────────────────────────────────────
 router.get('/loans', authenticate, loanController.list)

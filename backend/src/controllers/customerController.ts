@@ -97,6 +97,30 @@ export const customerController = {
       next(err)
     }
   },
+
+  async paymentStats(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const stats = await customerRepo.getPaymentStats(Number(req.params.id))
+      const data = {
+        ...stats,
+        latePayments: stats.latePayments.map((lp: any) => ({
+          id: lp.id,
+          loanNumber: lp.loan_number,
+          loanType: lp.loan_type,
+          loanId: lp.loan_id,
+          installmentNo: lp.installment_no,
+          dueDate: lp.due_date,
+          paidDate: lp.paid_date,
+          daysLate: Number(lp.days_late),
+          amountDue: Number(lp.amount_due),
+          paidAmount: Number(lp.paid_amount),
+        })),
+      }
+      res.json({ success: true, data })
+    } catch (err) {
+      next(err)
+    }
+  },
 }
 
 function camelizeLoan(r: any) {
