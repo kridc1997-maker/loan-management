@@ -123,7 +123,7 @@ export const dashboardRepo = {
       )
       .join('customers as c', 'c.id', 'l.customer_id')
       .groupBy('l.customer_id', 'c.id', 'c.first_name', 'c.last_name')
-      .orderBy('total_interest_paid', 'desc')
+      .orderByRaw('credit_score DESC NULLS LAST')
       .limit(limit)
   },
 
