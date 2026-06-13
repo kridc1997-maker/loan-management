@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, Bell, User, Calendar, LogOut, ChevronDown, Wallet, FileText } from 'lucide-react'
+import { Menu, Bell, User, Calendar, LogOut, ChevronDown, Wallet, FileText, Moon, Sun } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useAuthStore } from '../../stores/authStore'
 import { formatCurrency, formatDate } from '../../utils/financial'
 import { dashboardApi } from '../../api/endpoints'
 
 export default function Header() {
-  const { toggleSidebar } = useAppStore()
+  const { toggleSidebar, darkMode, toggleDarkMode } = useAppStore()
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -45,7 +45,7 @@ export default function Header() {
   }
 
   return (
-    <header className="flex-shrink-0 h-14 bg-white border-b border-gray-100 flex items-center px-4 gap-4 shadow-sm z-10 w-full">
+    <header className="flex-shrink-0 h-14 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700 flex items-center px-4 gap-4 shadow-sm z-10 w-full">
       <button
         onClick={toggleSidebar}
         className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
@@ -76,8 +76,18 @@ export default function Header() {
         )}
       </div>
 
+      {/* Dark mode toggle */}
+      <button
+        onClick={toggleDarkMode}
+        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 transition-colors"
+        aria-label="Toggle dark mode"
+        title={darkMode ? 'โหมดกลางวัน' : 'โหมดกลางคืน'}
+      >
+        {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
+
       {/* Notification */}
-      <button className="relative p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+      <button className="relative p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 hover:text-gray-700 transition-colors">
         <Bell size={18} />
         <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
       </button>
@@ -86,7 +96,7 @@ export default function Header() {
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
+          className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-slate-600"
         >
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
@@ -104,9 +114,9 @@ export default function Header() {
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gray-100 rounded-2xl shadow-xl py-1.5 z-50 overflow-hidden">
+          <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-slate-900/60 py-1.5 z-50 overflow-hidden">
             {/* User info header */}
-            <div className="px-4 py-3 border-b border-gray-50">
+            <div className="px-4 py-3 border-b border-gray-50 dark:border-slate-700">
               <div className="flex items-center gap-3">
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
