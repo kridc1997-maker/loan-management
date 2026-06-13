@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, Bell, User, Calendar, LogOut, ChevronDown, Wallet, FileText, Moon, Sun } from 'lucide-react'
+import { Menu, User, Calendar, LogOut, ChevronDown, Wallet, FileText, Moon, Sun } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useAuthStore } from '../../stores/authStore'
 import { formatCurrency, formatDate } from '../../utils/financial'
@@ -70,7 +70,7 @@ export default function Header() {
         {activeCount !== null && (
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 border border-green-100">
             <FileText size={13} className="text-green-500" />
-            <span className="text-xs text-green-400">กำลังชำระ</span>
+            <span className="text-xs text-green-400">สัญญาที่ Active</span>
             <span className="text-xs font-bold text-green-700">{activeCount} สัญญา</span>
           </div>
         )}
@@ -84,12 +84,6 @@ export default function Header() {
         title={darkMode ? 'โหมดกลางวัน' : 'โหมดกลางคืน'}
       >
         {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
-
-      {/* Notification */}
-      <button className="relative p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 hover:text-gray-700 transition-colors">
-        <Bell size={18} />
-        <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
       </button>
 
       {/* User Menu */}

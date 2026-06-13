@@ -177,6 +177,18 @@
 .dark .text-gray-500 { color: #64748B; }
 .dark .text-gray-400 { color: #94A3B8; }
 
+/* Text — mid-level colors used directly in tables/cards */
+.dark .text-green-600  { color: #4ade80; }
+.dark .text-blue-600   { color: #60a5fa; }
+.dark .text-red-600    { color: #f87171; }
+.dark .text-indigo-600 { color: #818cf8; }
+.dark .text-yellow-600 { color: #facc15; }
+.dark .text-amber-500  { color: #fbbf24; }
+.dark .text-teal-600   { color: #2dd4bf; }
+.dark .text-emerald-600 { color: #34d399; }
+.dark .text-orange-600 { color: #fb923c; }
+.dark .text-purple-600 { color: #c084fc; }
+
 /* Text — colored dark variants → light equivalents (badge/chip readability) */
 .dark .text-blue-800,
 .dark .text-blue-700   { color: #93C5FD; }
