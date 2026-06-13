@@ -9,7 +9,7 @@ interface Props {
 
 export default function Layout({ children }: Props) {
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden w-full">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
