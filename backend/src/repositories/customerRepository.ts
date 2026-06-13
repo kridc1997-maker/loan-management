@@ -26,7 +26,7 @@ export function getCreditLabel(score: number | null): string | null {
    + 20 bonus if 3+ clean-closed loans
    NULL when customer has no loans at all
 */
-const CREDIT_SCORE_SQL = `(SELECT
+export const CREDIT_SCORE_SQL = `(SELECT
   CASE WHEN (SELECT COUNT(*) FROM loans lc WHERE lc.customer_id = c.id) = 0 THEN NULL
   ELSE LEAST(100, GREATEST(0, (
     60

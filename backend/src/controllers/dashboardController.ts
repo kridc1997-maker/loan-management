@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from 'express'
 import { dashboardRepo } from '../repositories/dashboardRepository'
 import { loanRepo } from '../repositories/loanRepository'
+import { getCreditLabel } from '../repositories/customerRepository'
 import type { AuthRequest } from '../types'
 
 export const dashboardController = {
@@ -50,17 +51,20 @@ export const dashboardController = {
     try {
       const limit = Number(req.query.limit ?? 10)
       const rows = await dashboardRepo.getTopCustomers(limit)
-      const data = rows.map((r: any) => ({
-        customerId: r.customer_id,
-        customerName: r.customer_name,
-        loanCount: Number(r.loan_count),
-        closedLoansCount: Number(r.closed_loans_count ?? 0),
-        totalBorrowed: Number(r.total_borrowed),
-        totalInterestPaid: Number(r.total_interest_paid),
-        collectionRate: Number(r.total_interest_expected) > 0
-          ? Number(r.total_interest_paid) / Number(r.total_interest_expected)
-          : 0,
-      }))
+      const data = rows.map((r: any) => {
+        const creditScore = r.credit_score !== null && r.credit_score !== undefined
+          ? Number(r.credit_score) : null
+        return {
+          customerId: r.customer_id,
+          customerName: r.customer_name,
+          loanCount: Number(r.loan_count),
+          closedLoansCount: Number(r.closed_loans_count ?? 0),
+          totalBorrowed: Number(r.total_borrowed),
+          totalInterestPaid: Number(r.total_interest_paid),
+          creditScore,
+          creditLabel: getCreditLabel(creditScore),
+        }
+      })
       res.json({ success: true, data })
     } catch (err) {
       next(err)

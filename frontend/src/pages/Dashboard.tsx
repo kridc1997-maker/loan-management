@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Wallet, TrendingUp, PiggyBank, BadgeDollarSign,
-  AlertTriangle, Users, CheckCircle, Phone, Landmark, Receipt,
+  AlertTriangle, Users, XCircle, Phone, Landmark, Receipt,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -10,7 +10,7 @@ import {
 } from 'recharts'
 import KpiCard from '../components/ui/KpiCard'
 import StatusBadge from '../components/ui/StatusBadge'
-import { formatCurrency, formatPercent, overdueBadgeClass, daysOverdue, isInstallmentBased } from '../utils/financial'
+import { formatCurrency, overdueBadgeClass, daysOverdue, isInstallmentBased } from '../utils/financial'
 import { dashboardApi, paymentApi } from '../api/endpoints'
 import type { DashboardSummary, CashFlowSummary, TopCustomer, DueTodayItem } from '../types'
 
@@ -144,11 +144,11 @@ export default function Dashboard() {
           onClick={() => navigate('/overdue')}
         />
         <KpiCard
-          title="Collection Rate"
-          value={formatPercent(d.collectionRate)}
-          sub="อัตราการเก็บหนี้"
-          icon={<CheckCircle size={18} className="text-teal-600" />}
-          iconBg="bg-teal-50"
+          title="หนี้เสีย"
+          value={formatCurrency(d.badDebtAmount)}
+          sub={`${d.badDebtCount} ราย`}
+          icon={<XCircle size={18} className="text-red-500" />}
+          iconBg="bg-red-50"
         />
       </div>
 
@@ -221,9 +221,24 @@ export default function Dashboard() {
                   <p className="text-xs font-semibold text-gray-900 truncate">{c.customerName}</p>
                   <p className="text-xs text-gray-500">{c.loanCount} สัญญา · ปิดแล้ว {c.closedLoansCount} สัญญา</p>
                 </div>
-                <span className={`text-xs font-medium ${c.collectionRate >= 0.9 ? 'text-green-600' : c.collectionRate >= 0.7 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {formatPercent(c.collectionRate, 0)}
-                </span>
+                {c.creditScore !== null ? (
+                  <div className="text-right flex-shrink-0">
+                    <p className={`text-xs font-bold leading-tight ${
+                      c.creditScore >= 85 ? 'text-green-600'
+                      : c.creditScore >= 70 ? 'text-blue-600'
+                      : c.creditScore >= 50 ? 'text-yellow-600'
+                      : 'text-red-600'
+                    }`}>{c.creditScore}</p>
+                    <p className={`text-xs leading-tight ${
+                      c.creditScore >= 85 ? 'text-green-500'
+                      : c.creditScore >= 70 ? 'text-blue-500'
+                      : c.creditScore >= 50 ? 'text-yellow-500'
+                      : 'text-red-500'
+                    }`}>{c.creditLabel}</p>
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400">-</span>
+                )}
               </div>
             ))}
           </div>

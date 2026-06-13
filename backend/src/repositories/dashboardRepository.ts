@@ -1,4 +1,5 @@
 import db from '../db/connection'
+import { CREDIT_SCORE_SQL } from './customerRepository'
 
 export const dashboardRepo = {
   async getSummary() {
@@ -118,6 +119,7 @@ export const dashboardRepo = {
         db.raw('SUM(l.principal_amount) AS total_borrowed'),
         db.raw('SUM(l.paid_interest) AS total_interest_paid'),
         db.raw('SUM(l.total_amount - l.principal_amount) AS total_interest_expected'),
+        db.raw(CREDIT_SCORE_SQL),
       )
       .join('customers as c', 'c.id', 'l.customer_id')
       .groupBy('l.customer_id', 'c.first_name', 'c.last_name')

@@ -207,7 +207,8 @@ export interface TopCustomer {
   closedLoansCount: number
   totalBorrowed: number
   totalInterestPaid: number
-  collectionRate: number
+  creditScore: number | null
+  creditLabel: string | null
 }
 
 export interface DueTodayItem {

@@ -141,10 +141,10 @@ export const mockCashFlow: CashFlowSummary = {
 }
 
 export const mockTopCustomers: TopCustomer[] = [
-  { customerId: 1, customerName: 'สมชาย ใจดี', loanCount: 5, closedLoansCount: 3, totalBorrowed: 18000, totalInterestPaid: 3800, collectionRate: 0.92 },
-  { customerId: 4, customerName: 'สมศรี ดีงาม', loanCount: 3, closedLoansCount: 2, totalBorrowed: 12000, totalInterestPaid: 2800, collectionRate: 0.85 },
-  { customerId: 3, customerName: 'วิชัย มาดี', loanCount: 4, closedLoansCount: 1, totalBorrowed: 10000, totalInterestPaid: 1800, collectionRate: 0.72 },
-  { customerId: 2, customerName: 'มาลี สวยงาม', loanCount: 2, closedLoansCount: 2, totalBorrowed: 5000, totalInterestPaid: 1100, collectionRate: 1.0 },
+  { customerId: 1, customerName: 'สมชาย ใจดี', loanCount: 5, closedLoansCount: 3, totalBorrowed: 18000, totalInterestPaid: 3800, creditScore: 82, creditLabel: 'ดี' },
+  { customerId: 4, customerName: 'สมศรี ดีงาม', loanCount: 3, closedLoansCount: 2, totalBorrowed: 12000, totalInterestPaid: 2800, creditScore: 74, creditLabel: 'ดี' },
+  { customerId: 3, customerName: 'วิชัย มาดี', loanCount: 4, closedLoansCount: 1, totalBorrowed: 10000, totalInterestPaid: 1800, creditScore: 58, creditLabel: 'ปานกลาง' },
+  { customerId: 2, customerName: 'มาลี สวยงาม', loanCount: 2, closedLoansCount: 2, totalBorrowed: 5000, totalInterestPaid: 1100, creditScore: 95, creditLabel: 'ดีมาก' },
 ]
 
 export const mockDueToday: DueTodayItem[] = [
