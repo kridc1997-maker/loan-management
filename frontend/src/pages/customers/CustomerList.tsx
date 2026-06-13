@@ -4,7 +4,7 @@ import { Plus, Search, Phone, ChevronRight, FilePlus } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import StatusBadge from '../../components/ui/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
-import { formatCurrency, formatPercent } from '../../utils/financial'
+import { formatCurrency } from '../../utils/financial'
 import { customerApi } from '../../api/endpoints'
 import type { Customer, CustomerForm } from '../../types'
 import { useAppStore } from '../../stores/appStore'
@@ -153,7 +153,7 @@ export default function CustomerList() {
                 <th className="table-header">เบอร์โทร</th>
                 <th className="table-header">อาชีพ</th>
                 <th className="table-header text-right">ยอดค้าง</th>
-                <th className="table-header text-center">Collection %</th>
+                <th className="table-header text-center">เครดิต</th>
                 <th className="table-header text-center">ความเสี่ยง</th>
                 <th className="table-header text-center">สัญญา Active</th>
                 <th className="table-header" />
@@ -197,14 +197,24 @@ export default function CustomerList() {
                       </span>
                     </td>
                     <td className="table-cell text-center">
-                      <span className={`text-sm font-semibold ${
-                        c.collectionRate >= 0.9 ? 'text-green-600'
-                        : c.collectionRate >= 0.7 ? 'text-yellow-600'
-                        : c.collectionRate > 0 ? 'text-red-600'
-                        : 'text-gray-400'
-                      }`}>
-                        {c.collectionRate > 0 ? formatPercent(c.collectionRate, 0) : '-'}
-                      </span>
+                      {c.creditScore !== null ? (
+                        <div className="inline-flex flex-col items-center">
+                          <span className={`text-sm font-bold leading-tight ${
+                            c.creditScore >= 85 ? 'text-green-600'
+                            : c.creditScore >= 70 ? 'text-blue-600'
+                            : c.creditScore >= 50 ? 'text-yellow-600'
+                            : 'text-red-600'
+                          }`}>{c.creditScore}</span>
+                          <span className={`text-xs leading-tight ${
+                            c.creditScore >= 85 ? 'text-green-500'
+                            : c.creditScore >= 70 ? 'text-blue-500'
+                            : c.creditScore >= 50 ? 'text-yellow-500'
+                            : 'text-red-500'
+                          }`}>{c.creditLabel}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="table-cell text-center">
                       <StatusBadge status={c.riskLevel} />

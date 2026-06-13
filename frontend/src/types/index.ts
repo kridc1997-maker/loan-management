@@ -25,7 +25,8 @@ export interface Customer {
   isActive: boolean
   activeLoansCount: number
   totalOutstanding: number
-  collectionRate: number
+  creditScore: number | null
+  creditLabel: string | null
   createdAt: string
   updatedAt: string
 }

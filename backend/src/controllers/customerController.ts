@@ -1,6 +1,6 @@
 import type { Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { customerRepo } from '../repositories/customerRepository'
+import { customerRepo, getCreditLabel } from '../repositories/customerRepository'
 import { generateCustomerCode } from '../utils/helpers'
 import { AppError } from '../middleware/errorHandler'
 import type { AuthRequest } from '../types'
@@ -102,7 +102,13 @@ export const customerController = {
     try {
       const stats = await customerRepo.getPaymentStats(Number(req.params.id))
       const data = {
-        ...stats,
+        totalDue: stats.totalDue,
+        totalPaid: stats.totalPaid,
+        lateCount: stats.lateCount,
+        avgDaysLate: stats.avgDaysLate,
+        collectionRate: stats.collectionRate,
+        creditScore: stats.creditScore,
+        creditLabel: stats.creditLabel,
         latePayments: stats.latePayments.map((lp: any) => ({
           id: lp.id,
           loanNumber: lp.loan_number,
@@ -149,6 +155,7 @@ function camelizeLoan(r: any) {
 }
 
 function camelizeCustomer(r: any) {
+  const creditScore = r.credit_score != null ? Number(r.credit_score) : null
   return {
     id: r.id, code: r.code,
     firstName: r.first_name, lastName: r.last_name,
@@ -158,7 +165,8 @@ function camelizeCustomer(r: any) {
     note: r.note, isActive: r.is_active,
     activeLoansCount: Number(r.active_loans_count ?? 0),
     totalOutstanding: Number(r.total_outstanding ?? 0),
-    collectionRate: r.collection_rate != null ? Number(r.collection_rate) : null,
+    creditScore,
+    creditLabel: getCreditLabel(creditScore),
     createdAt: r.created_at, updatedAt: r.updated_at,
   }
 }

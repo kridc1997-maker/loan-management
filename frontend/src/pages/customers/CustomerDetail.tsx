@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
-import { formatCurrency, formatPercent, formatDate, isInstallmentBased } from '../../utils/financial'
+import { formatCurrency, formatDate, isInstallmentBased } from '../../utils/financial'
 import { customerApi } from '../../api/endpoints'
 import type { Customer, Loan } from '../../types'
 
@@ -12,6 +12,8 @@ interface PaymentStats {
   lateCount: number
   avgDaysLate: number
   collectionRate: number | null
+  creditScore: number | null
+  creditLabel: string | null
   latePayments: {
     id: number
     loanNumber: string
@@ -139,7 +141,6 @@ export default function CustomerDetail() {
           { label: 'สัญญาทั้งหมด', value: String(loans.length), sub: 'ครั้ง' },
           { label: 'ยอดกู้สะสม', value: formatCurrency(totalBorrowed), sub: '' },
           { label: 'ดอกที่จ่ายแล้ว', value: formatCurrency(totalInterest), sub: '' },
-          { label: 'อัตราการชำระ', value: paymentStats?.collectionRate != null ? formatPercent(paymentStats.collectionRate, 1) : '-', sub: (paymentStats?.lateCount ?? 0) > 0 ? `ช้า ${paymentStats!.lateCount} งวด` : '' },
         ].map((s) => (
           <div key={s.label} className="card text-center py-4">
             <p className="text-xl font-bold text-gray-900">{s.value}</p>
@@ -147,6 +148,29 @@ export default function CustomerDetail() {
             <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
           </div>
         ))}
+
+        {/* Credit score card */}
+        {(() => {
+          const score = paymentStats?.creditScore ?? null
+          const label = paymentStats?.creditLabel ?? null
+          const colorCls = score === null ? 'text-gray-400'
+            : score >= 85 ? 'text-green-600'
+            : score >= 70 ? 'text-blue-600'
+            : score >= 50 ? 'text-yellow-600'
+            : 'text-red-600'
+          return (
+            <div className="card text-center py-4">
+              <p className={`text-2xl font-bold ${colorCls}`}>
+                {score !== null ? score : '-'}
+              </p>
+              {label && <p className={`text-xs font-semibold mt-0.5 ${colorCls}`}>{label}</p>}
+              {(paymentStats?.lateCount ?? 0) > 0 && (
+                <p className="text-xs text-amber-500 mt-0.5">ช้า {paymentStats!.lateCount} งวด</p>
+              )}
+              <p className="text-xs text-gray-500 mt-0.5">เครดิต (0–100)</p>
+            </div>
+          )
+        })()}
       </div>
 
       <div className="card">
