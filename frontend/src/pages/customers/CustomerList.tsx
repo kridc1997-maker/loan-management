@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Phone, ChevronRight, FilePlus } from 'lucide-react'
+import { Plus, Search, Phone, ChevronRight, FilePlus, Pencil } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import StatusBadge from '../../components/ui/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
@@ -9,9 +9,20 @@ import { customerApi } from '../../api/endpoints'
 import type { Customer, CustomerForm } from '../../types'
 import { useAppStore } from '../../stores/appStore'
 
-function CustomerForm({ onClose, onSubmit }: { onClose: () => void; onSubmit: (data: CustomerForm) => void }) {
+function CustomerForm({ onClose, onSubmit, initialData }: {
+  onClose: () => void
+  onSubmit: (data: CustomerForm) => void
+  initialData?: Customer | null
+}) {
   const [form, setForm] = useState<CustomerForm>({
-    firstName: '', lastName: '', phone: '', idCard: '', address: '', occupation: '', lineId: '', note: '',
+    firstName: initialData?.firstName ?? '',
+    lastName: initialData?.lastName ?? '',
+    phone: initialData?.phone ?? '',
+    idCard: initialData?.idCard ?? '',
+    address: initialData?.address ?? '',
+    occupation: initialData?.occupation ?? '',
+    lineId: initialData?.lineId ?? '',
+    note: initialData?.note ?? '',
   })
 
   const set = (k: keyof CustomerForm, v: string) => setForm((f) => ({ ...f, [k]: v }))
@@ -74,6 +85,7 @@ export default function CustomerList() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -105,6 +117,18 @@ export default function CustomerList() {
       addToast('success', `เพิ่มลูกค้า ${form.firstName} ${form.lastName} สำเร็จ`)
     }).catch(() => {
       addToast('error', 'เกิดข้อผิดพลาด ไม่สามารถเพิ่มลูกค้าได้')
+    })
+  }
+
+  const handleEditSave = (form: CustomerForm) => {
+    if (!editCustomer) return
+    customerApi.update(editCustomer.id, form).then((res) => {
+      const updated = res.data.data
+      setCustomers((prev) => prev.map((c) => c.id === updated.id ? updated : c))
+      setEditCustomer(null)
+      addToast('success', `แก้ไขข้อมูล ${form.firstName} ${form.lastName} สำเร็จ`)
+    }).catch(() => {
+      addToast('error', 'เกิดข้อผิดพลาด ไม่สามารถแก้ไขข้อมูลได้')
     })
   }
 
@@ -231,6 +255,13 @@ export default function CustomerList() {
                     <td className="table-cell">
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button
+                          onClick={() => setEditCustomer(c)}
+                          className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
+                          title="แก้ไขข้อมูล"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
                           onClick={() => navigate(`/loans/new`, { state: { customerId: c.id, customerName: `${c.firstName} ${c.lastName}` } })}
                           className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
                           title="ปล่อยกู้"
@@ -255,6 +286,10 @@ export default function CustomerList() {
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="เพิ่มลูกค้าใหม่" size="lg">
         <CustomerForm onClose={() => setShowAdd(false)} onSubmit={handleAdd} />
+      </Modal>
+
+      <Modal open={!!editCustomer} onClose={() => setEditCustomer(null)} title="แก้ไขข้อมูลลูกค้า" size="lg">
+        <CustomerForm onClose={() => setEditCustomer(null)} onSubmit={handleEditSave} initialData={editCustomer} />
       </Modal>
     </div>
   )

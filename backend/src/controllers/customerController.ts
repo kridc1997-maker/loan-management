@@ -14,6 +14,7 @@ const createSchema = z.object({
   occupation: z.string().optional(),
   lineId: z.string().optional(),
   note: z.string().optional(),
+  riskLevel: z.enum(['low', 'normal', 'high', 'blacklist']).optional(),
 })
 
 export const customerController = {
@@ -72,8 +73,9 @@ export const customerController = {
 
   async update(req: AuthRequest, res: Response, next: NextFunction) {
     try {
+      const id = Number(req.params.id)
       const body = createSchema.partial().parse(req.body)
-      const row = await customerRepo.update(Number(req.params.id), {
+      await customerRepo.update(id, {
         first_name: body.firstName,
         last_name: body.lastName,
         phone: body.phone,
@@ -82,8 +84,11 @@ export const customerController = {
         occupation: body.occupation,
         line_id: body.lineId,
         note: body.note,
+        risk_level: body.riskLevel as any,
       })
-      res.json({ success: true, data: camelizeCustomer(row) })
+      const full = await customerRepo.findById(id)
+      if (!full) throw new AppError(404, 'ไม่พบลูกค้า')
+      res.json({ success: true, data: camelizeCustomer(full) })
     } catch (err) {
       next(err)
     }

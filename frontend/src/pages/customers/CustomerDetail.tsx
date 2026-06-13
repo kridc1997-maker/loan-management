@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle, Pencil } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
+import Modal from '../../components/ui/Modal'
 import { formatCurrency, formatDate, isInstallmentBased } from '../../utils/financial'
 import { customerApi } from '../../api/endpoints'
-import type { Customer, Loan } from '../../types'
+import { useAppStore } from '../../stores/appStore'
+import type { Customer, Loan, CustomerForm } from '../../types'
 
 interface PaymentStats {
   totalDue: number
@@ -35,14 +37,59 @@ const LOAN_TYPE_LABEL: Record<string, { label: string; cls: string }> = {
   daily:       { label: 'รายวัน',    cls: 'bg-orange-100 text-orange-700' },
 }
 
+const RISK_OPTIONS = [
+  { value: 'low', label: 'ความเสี่ยงต่ำ' },
+  { value: 'normal', label: 'ปกติ' },
+  { value: 'high', label: 'ความเสี่ยงสูง' },
+  { value: 'blacklist', label: 'Blacklist' },
+]
+
 export default function CustomerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { addToast } = useAppStore()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loans, setLoans] = useState<Loan[]>([])
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editForm, setEditForm] = useState<CustomerForm & { riskLevel: string }>({
+    firstName: '', lastName: '', phone: '', idCard: '', address: '', occupation: '', lineId: '', note: '', riskLevel: 'normal',
+  })
+  const [editSaving, setEditSaving] = useState(false)
+
+  const openEdit = () => {
+    if (!customer) return
+    setEditForm({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      phone: customer.phone,
+      idCard: customer.idCard ?? '',
+      address: customer.address ?? '',
+      occupation: customer.occupation ?? '',
+      lineId: customer.lineId ?? '',
+      note: customer.note ?? '',
+      riskLevel: customer.riskLevel,
+    })
+    setShowEdit(true)
+  }
+
+  const handleEditSave = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!customer || !editForm.firstName || !editForm.phone) return
+    setEditSaving(true)
+    customerApi.update(customer.id, editForm).then((res) => {
+      setCustomer(res.data.data)
+      setShowEdit(false)
+      addToast('success', 'แก้ไขข้อมูลลูกค้าสำเร็จ')
+    }).catch(() => {
+      addToast('error', 'เกิดข้อผิดพลาด ไม่สามารถแก้ไขข้อมูลได้')
+    }).finally(() => setEditSaving(false))
+  }
+
+  const setField = (k: keyof typeof editForm, v: string) =>
+    setEditForm((f) => ({ ...f, [k]: v }))
 
   useEffect(() => {
     if (!id) return
@@ -103,12 +150,17 @@ export default function CustomerDetail() {
               <p className="text-sm text-gray-400 mt-0.5">{customer.code}</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/loans/new', { state: { customerId: customer.id, customerName: `${customer.firstName} ${customer.lastName}` } })}
-            className="btn-primary"
-          >
-            <FilePlus size={15} /> ปล่อยกู้
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={openEdit} className="btn-secondary">
+              <Pencil size={15} /> แก้ไข
+            </button>
+            <button
+              onClick={() => navigate('/loans/new', { state: { customerId: customer.id, customerName: `${customer.firstName} ${customer.lastName}` } })}
+              className="btn-primary"
+            >
+              <FilePlus size={15} /> ปล่อยกู้
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-5 pt-5 border-t border-gray-100">
@@ -227,6 +279,61 @@ export default function CustomerDetail() {
           </div>
         )}
       </div>
+
+      <Modal open={showEdit} onClose={() => setShowEdit(false)} title="แก้ไขข้อมูลลูกค้า" size="lg">
+        <form onSubmit={handleEditSave} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">ชื่อ *</label>
+              <input className="input" value={editForm.firstName} onChange={(e) => setField('firstName', e.target.value)} required />
+            </div>
+            <div>
+              <label className="label">นามสกุล</label>
+              <input className="input" value={editForm.lastName} onChange={(e) => setField('lastName', e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">เบอร์โทรศัพท์ *</label>
+              <input className="input" value={editForm.phone} onChange={(e) => setField('phone', e.target.value)} required />
+            </div>
+            <div>
+              <label className="label">เลขบัตรประชาชน</label>
+              <input className="input" value={editForm.idCard} onChange={(e) => setField('idCard', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="label">ที่อยู่</label>
+            <textarea className="input resize-none" rows={2} value={editForm.address} onChange={(e) => setField('address', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">อาชีพ</label>
+              <input className="input" value={editForm.occupation} onChange={(e) => setField('occupation', e.target.value)} />
+            </div>
+            <div>
+              <label className="label">LINE ID</label>
+              <input className="input" value={editForm.lineId} onChange={(e) => setField('lineId', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="label">ระดับความเสี่ยง</label>
+            <select className="input" value={editForm.riskLevel} onChange={(e) => setField('riskLevel', e.target.value)}>
+              {RISK_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">หมายเหตุ</label>
+            <textarea className="input resize-none" rows={2} value={editForm.note} onChange={(e) => setField('note', e.target.value)} />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={() => setShowEdit(false)} className="btn-secondary flex-1 justify-center">ยกเลิก</button>
+            <button type="submit" className="btn-primary flex-1 justify-center" disabled={editSaving}>
+              {editSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {paymentStats && paymentStats.lateCount > 0 && (
         <div className="card">
