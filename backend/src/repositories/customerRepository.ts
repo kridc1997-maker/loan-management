@@ -91,7 +91,7 @@ export const customerRepo = {
       .select(
         'c.*',
         db.raw(`(SELECT COUNT(*) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')) AS active_loans_count`),
-        db.raw(`COALESCE((SELECT SUM(l2.principal_amount - l2.paid_principal) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')), 0) AS total_outstanding`),
+        db.raw(`COALESCE((SELECT SUM(CASE WHEN l2.loan_type IN ('daily','installment') THEN l2.total_amount - COALESCE(l2.installment_amount,0) * l2.paid_installments ELSE l2.total_amount - l2.paid_principal - l2.paid_interest END) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')), 0) AS total_outstanding`),
         db.raw(CREDIT_SCORE_SQL),
       )
       .orderBy(`c.${sortBy}`, order)
@@ -132,7 +132,7 @@ export const customerRepo = {
       .select(
         'c.*',
         db.raw(`(SELECT COUNT(*) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')) AS active_loans_count`),
-        db.raw(`COALESCE((SELECT SUM(l2.principal_amount - l2.paid_principal) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')), 0) AS total_outstanding`),
+        db.raw(`COALESCE((SELECT SUM(CASE WHEN l2.loan_type IN ('daily','installment') THEN l2.total_amount - COALESCE(l2.installment_amount,0) * l2.paid_installments ELSE l2.total_amount - l2.paid_principal - l2.paid_interest END) FROM loans l2 WHERE l2.customer_id = c.id AND l2.status IN ('active','overdue')), 0) AS total_outstanding`),
         db.raw(CREDIT_SCORE_SQL),
       )
       .where('c.id', id)
