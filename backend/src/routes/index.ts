@@ -145,7 +145,7 @@ router.get('/reports/profit', authenticate, async (req, res, next) => {
     const rows = await db('payments')
       .select(
         db.raw("DATE_TRUNC('month', payment_date::date) AS month"),
-        db.raw('SUM(interest_paid) AS interest_collected'),
+        db.raw('SUM(interest_paid + COALESCE(fine_paid, 0)) AS interest_collected'),
         db.raw('SUM(principal_paid) AS principal_collected'),
         db.raw('COUNT(*) AS payment_count'),
       )
@@ -168,7 +168,7 @@ router.get('/reports/monthly-stats', authenticate, async (req, res, next) => {
       db('payments')
         .select(
           db.raw("TO_CHAR(DATE_TRUNC('month', payment_date::date), 'YYYY-MM') AS month_key"),
-          db.raw('SUM(interest_paid) AS interest_collected'),
+          db.raw('SUM(interest_paid + COALESCE(fine_paid, 0)) AS interest_collected'),
           db.raw('SUM(principal_paid) AS principal_collected'),
         )
         .whereBetween('payment_date', [from, to])
