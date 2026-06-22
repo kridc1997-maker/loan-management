@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { TrendingUp, TrendingDown, Minus, Wallet, PlusCircle, MinusCircle, Receipt, RefreshCw, X } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Wallet, PlusCircle, MinusCircle, Receipt, RefreshCw, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
@@ -41,6 +41,40 @@ function txnLabel(type: string) {
   return TXN_TYPES.find((t) => t.value === type)?.label ?? type
 }
 
+const TXN_TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  principal_in:     { label: 'รับต้น',       color: '#1565C0', bg: '#E3F2FD' },
+  interest_in:      { label: 'รับดอก',        color: '#2E7D32', bg: '#E8F5E9' },
+  fine_in:          { label: 'รับค่าปรับ',    color: '#F57F17', bg: '#FFFDE7' },
+  bad_debt_recover: { label: 'ได้คืนหนี้เสีย', color: '#4A148C', bg: '#F3E5F5' },
+  loan_out:         { label: 'ปล่อยกู้',      color: '#C62828', bg: '#FFEBEE' },
+  capital_in:       { label: 'เพิ่มทุน',      color: '#2E7D32', bg: '#E8F5E9' },
+  capital_out:      { label: 'ถอนทุน',        color: '#C62828', bg: '#FFEBEE' },
+  expense:          { label: 'ค่าใช้จ่าย',    color: '#E64A19', bg: '#FBE9E7' },
+  balance_adjust:   { label: 'ปรับยอด',       color: '#546E7A', bg: '#ECEFF1' },
+}
+
+function dailyTxnBadge(txnType: string) {
+  const t = TXN_TYPE_LABELS[txnType] ?? { label: txnType, color: '#546E7A', bg: '#ECEFF1' }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
+      style={{ color: t.color, background: t.bg }}>
+      {t.label}
+    </span>
+  )
+}
+
+function shiftDate(dateStr: string, days: number) {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
+
+function formatThaiDate(iso: string) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' })
+}
+
 function formatShortDate(iso: string) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -57,6 +91,11 @@ export default function CashFlow() {
   const [currentBalance, setCurrentBalance] = useState(0)
   const [recentTxns, setRecentTxns] = useState<any[]>([])
   const [balanceLoading, setBalanceLoading] = useState(true)
+
+  // Daily transaction table
+  const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0])
+  const [dailyTxns, setDailyTxns] = useState<any[]>([])
+  const [dailyLoading, setDailyLoading] = useState(false)
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -85,8 +124,14 @@ export default function CashFlow() {
     dashboardApi.cashFlow(days).then((res) => setCashFlow(res.data.data)).finally(() => setLoading(false))
   }, [period])
 
+  const loadDailyTxns = useCallback(() => {
+    setDailyLoading(true)
+    cashApi.daily(dailyDate).then((res) => setDailyTxns(res.data.data)).finally(() => setDailyLoading(false))
+  }, [dailyDate])
+
   useEffect(() => { loadBalance() }, [loadBalance])
   useEffect(() => { loadCashFlow() }, [loadCashFlow])
+  useEffect(() => { loadDailyTxns() }, [loadDailyTxns])
 
   const closeModal = () => {
     setModalOpen(false); setAmount(''); setTargetBalance(''); setDesc(''); setErr('')
@@ -320,6 +365,115 @@ export default function CashFlow() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ═══ Daily Transaction Table ═══ */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-gray-900 flex-shrink-0">รายการรับ-จ่ายรายวัน</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDailyDate((d) => shiftDate(d, -1))}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+              <ChevronLeft size={15} />
+            </button>
+            <input
+              type="date"
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              value={dailyDate}
+              onChange={(e) => setDailyDate(e.target.value)}
+            />
+            <button
+              onClick={() => setDailyDate((d) => shiftDate(d, 1))}
+              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+              disabled={dailyDate >= new Date().toISOString().split('T')[0]}>
+              <ChevronRight size={15} />
+            </button>
+            <span className="text-xs text-gray-400">{formatThaiDate(dailyDate)}</span>
+            <button onClick={loadDailyTxns} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+              <RefreshCw size={13} />
+            </button>
+          </div>
+        </div>
+
+        {dailyLoading ? (
+          <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
+        ) : dailyTxns.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-sm text-gray-400">ไม่มีรายการในวันนี้</p>
+          </div>
+        ) : (
+          <>
+            {/* Summary bar */}
+            <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex gap-6 text-xs">
+              <span className="text-gray-500">
+                รับเข้า <span className="font-bold text-blue-600">
+                  {formatCurrency(dailyTxns.filter(t => t.direction === 'in').reduce((s, t) => s + Number(t.amount), 0))}
+                </span>
+              </span>
+              <span className="text-gray-500">
+                จ่ายออก <span className="font-bold text-red-500">
+                  {formatCurrency(dailyTxns.filter(t => t.direction === 'out').reduce((s, t) => s + Number(t.amount), 0))}
+                </span>
+              </span>
+              <span className="text-gray-400">{dailyTxns.length} รายการ</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="table-header">เลขที่</th>
+                    <th className="table-header">ประเภท</th>
+                    <th className="table-header">ลูกค้า / รายละเอียด</th>
+                    <th className="table-header">เลขสัญญา</th>
+                    <th className="table-header text-right">รับเข้า</th>
+                    <th className="table-header text-right">จ่ายออก</th>
+                    <th className="table-header text-right">คงเหลือ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyTxns.map((t: any) => (
+                    <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="table-cell text-xs text-gray-400 font-mono">{t.txn_number}</td>
+                      <td className="table-cell">{dailyTxnBadge(t.txn_type)}</td>
+                      <td className="table-cell">
+                        {t.customer_name
+                          ? <span className="text-sm font-medium text-gray-800">{t.customer_name}</span>
+                          : <span className="text-sm text-gray-500">{t.description}</span>
+                        }
+                        {t.customer_name && t.description && (
+                          <p className="text-xs text-gray-400 mt-0.5">{t.description}</p>
+                        )}
+                      </td>
+                      <td className="table-cell">
+                        {t.loan_number
+                          ? <span className="text-xs font-mono text-blue-600">{t.loan_number}</span>
+                          : <span className="text-gray-300">—</span>
+                        }
+                      </td>
+                      <td className="table-cell text-right">
+                        {t.direction === 'in'
+                          ? <span className="font-semibold text-blue-600">{formatCurrency(Number(t.amount))}</span>
+                          : <span className="text-gray-300">—</span>
+                        }
+                      </td>
+                      <td className="table-cell text-right">
+                        {t.direction === 'out'
+                          ? <span className="font-semibold text-red-500">{formatCurrency(Number(t.amount))}</span>
+                          : <span className="text-gray-300">—</span>
+                        }
+                      </td>
+                      <td className="table-cell text-right font-semibold text-gray-700 tabular-nums">
+                        {formatCurrency(Number(t.balance_after))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ═══════════════════════════════════

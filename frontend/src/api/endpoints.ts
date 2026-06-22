@@ -73,6 +73,7 @@ export const reportApi = {
 // ─── Cash ─────────────────────────────────────────────────────────────────────
 export const cashApi = {
   balance: () => api.get('/cash/balance'),
+  daily: (date: string) => api.get('/cash/daily', { params: { date } }),
   adjust: (data: { type: 'capital_in' | 'capital_out' | 'expense'; amount: number; description?: string; txnDate?: string }) =>
     api.post('/cash/adjust', data),
   setBalance: (targetBalance: number, description?: string) =>

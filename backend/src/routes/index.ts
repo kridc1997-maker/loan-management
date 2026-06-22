@@ -302,6 +302,37 @@ router.put('/settings', authenticate, async (req, res, next) => {
 })
 
 // ─── Cash Management ──────────────────────────────────────────────────────────
+router.get('/cash/daily', authenticate, async (req, res, next) => {
+  try {
+    const date = (req.query.date as string) ?? new Date().toISOString().split('T')[0]
+    const rows = await db('cash_transactions as ct')
+      .leftJoin('loans as l', 'l.id', 'ct.loan_id')
+      .leftJoin('customers as c', 'c.id', 'l.customer_id')
+      .leftJoin('payments as p', 'p.id', 'ct.payment_id')
+      .select(
+        'ct.id',
+        'ct.txn_number',
+        'ct.txn_type',
+        'ct.direction',
+        'ct.amount',
+        'ct.balance_after',
+        'ct.description',
+        'ct.created_at',
+        'l.loan_number',
+        'l.loan_type',
+        db.raw("CASE WHEN c.id IS NOT NULL THEN c.first_name || ' ' || c.last_name ELSE NULL END AS customer_name"),
+        'p.payment_type',
+        'p.principal_paid',
+        'p.interest_paid',
+        'p.fine_paid',
+        'p.payment_method',
+      )
+      .whereRaw('ct.txn_date::date = ?::date', [date])
+      .orderBy('ct.id', 'desc')
+    res.json({ success: true, data: rows })
+  } catch (err) { next(err) }
+})
+
 router.get('/cash/balance', authenticate, async (_req, res, next) => {
   try {
     const last = await db('cash_transactions').select('balance_after').orderBy('id', 'desc').first()
