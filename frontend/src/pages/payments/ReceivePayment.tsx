@@ -171,7 +171,7 @@ export default function ReceivePayment() {
       ...(isSinglePartial && newInterestAmount ? { newInterestAmount: Number(newInterestAmount) } : {}),
     }
 
-    loanApi.payment(selectedLoan.id, payload as any).then((res: any) => {
+    loanApi.payment(selectedLoan.id, payload as any).then(() => {
       const fineStr = fine > 0 ? ` (ค่าปรับ ${formatCurrency(fine)})` : ''
       let msg = ''
       if (paymentType === 'rollover') {
