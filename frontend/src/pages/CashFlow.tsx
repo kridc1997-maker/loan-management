@@ -36,6 +36,7 @@ type ModalMode = 'adjust' | 'set'
 
 type TxnType = typeof TXN_TYPES[number]['value']
 type Period = '7d' | '14d' | '30d'
+type TablePeriod = '3d' | '5d' | '7d' | '14d' | '30d'
 
 function txnLabel(type: string) {
   return TXN_TYPES.find((t) => t.value === type)?.label ?? type
@@ -92,7 +93,12 @@ export default function CashFlow() {
   const [recentTxns, setRecentTxns] = useState<any[]>([])
   const [balanceLoading, setBalanceLoading] = useState(true)
 
-  // Daily transaction table
+  // Net Flow table (independent period)
+  const [tablePeriod, setTablePeriod] = useState<TablePeriod>('7d')
+  const [tableCashFlow, setTableCashFlow] = useState<CashFlowSummary | null>(null)
+  const [tableLoading, setTableLoading] = useState(true)
+
+  // Daily transaction detail table
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0])
   const [dailyTxns, setDailyTxns] = useState<any[]>([])
   const [dailyLoading, setDailyLoading] = useState(false)
@@ -124,6 +130,12 @@ export default function CashFlow() {
     dashboardApi.cashFlow(days).then((res) => setCashFlow(res.data.data)).finally(() => setLoading(false))
   }, [period])
 
+  const loadTableCashFlow = useCallback(() => {
+    setTableLoading(true)
+    const days = tablePeriod === '3d' ? 3 : tablePeriod === '5d' ? 5 : tablePeriod === '7d' ? 7 : tablePeriod === '14d' ? 14 : 30
+    dashboardApi.cashFlow(days).then((res) => setTableCashFlow(res.data.data)).finally(() => setTableLoading(false))
+  }, [tablePeriod])
+
   const loadDailyTxns = useCallback(() => {
     setDailyLoading(true)
     cashApi.daily(dailyDate).then((res) => setDailyTxns(res.data.data)).finally(() => setDailyLoading(false))
@@ -131,6 +143,7 @@ export default function CashFlow() {
 
   useEffect(() => { loadBalance() }, [loadBalance])
   useEffect(() => { loadCashFlow() }, [loadCashFlow])
+  useEffect(() => { loadTableCashFlow() }, [loadTableCashFlow])
   useEffect(() => { loadDailyTxns() }, [loadDailyTxns])
 
   const closeModal = () => {
@@ -334,36 +347,57 @@ export default function CashFlow() {
         </ResponsiveContainer>
       </div>
 
-      {/* ═══ Daily Table ═══ */}
+      {/* ═══ Net Flow Table ═══ */}
       <div className="card p-0 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-900">รายวัน</h2>
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900">Net Flow</h2>
+          <div className="flex gap-1.5">
+            {(['3d', '5d', '7d', '14d', '30d'] as TablePeriod[]).map((p) => (
+              <button key={p} onClick={() => setTablePeriod(p)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  tablePeriod === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {p === '3d' ? '3 วัน' : p === '5d' ? '5 วัน' : p === '7d' ? '7 วัน' : p === '14d' ? '14 วัน' : '30 วัน'}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="table-header">วันที่</th>
-                <th className="table-header text-right">รับเข้า</th>
-                <th className="table-header text-right">จ่ายออก</th>
-                <th className="table-header text-right">Net</th>
-                <th className="table-header text-right">ยอดคงเหลือ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...data].reverse().map((d) => (
-                <tr key={d.date} className="border-b border-gray-50 hover:bg-gray-50">
-                  <td className="table-cell text-gray-600">{d.date}</td>
-                  <td className="table-cell text-right text-blue-600 font-medium">{formatCurrency(d.รับเข้า)}</td>
-                  <td className="table-cell text-right text-red-500">{formatCurrency(d.จ่ายออก)}</td>
-                  <td className={`table-cell text-right font-semibold ${d.net >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
-                    {d.net >= 0 ? '+' : ''}{formatCurrency(d.net)}
-                  </td>
-                  <td className="table-cell text-right font-semibold text-gray-900">{formatCurrency(d.คงเหลือ)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-y-auto" style={{ maxHeight: '320px' }}>
+            {tableLoading ? (
+              <div className="flex justify-center py-10">
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                  <tr>
+                    <th className="table-header">วันที่</th>
+                    <th className="table-header text-right">รับเข้า</th>
+                    <th className="table-header text-right">จ่ายออก</th>
+                    <th className="table-header text-right">Net</th>
+                    <th className="table-header text-right">ยอดคงเหลือ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...(tableCashFlow?.daily ?? [])].reverse().map((d) => {
+                    const net = d.in - d.out
+                    return (
+                      <tr key={d.date} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="table-cell text-gray-600">{String(d.date).slice(5)}</td>
+                        <td className="table-cell text-right text-blue-600 font-medium">{formatCurrency(d.in)}</td>
+                        <td className="table-cell text-right text-red-500">{formatCurrency(d.out)}</td>
+                        <td className={`table-cell text-right font-semibold ${net >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                          {net >= 0 ? '+' : ''}{formatCurrency(net)}
+                        </td>
+                        <td className="table-cell text-right font-semibold text-gray-900">{formatCurrency(d.balance)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
 
