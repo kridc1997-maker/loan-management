@@ -25,13 +25,16 @@ interface ReceivePaymentInput {
   loanId: number
   installmentId?: number
   amount: number
-  finePaid?: number   // fine/penalty portion included in amount
+  finePaid?: number
   paymentType: PaymentType
   paymentMethod: PaymentMethod
   paymentDate: string
   note?: string
-  newDueDate?: string  // for rollover
+  newDueDate?: string       // for rollover
   createdBy?: number
+  explicitPrincipal?: number  // single+partial: admin-specified principal portion
+  explicitInterest?: number   // single+partial: admin-specified interest portion
+  newInterestAmount?: number  // single+partial: new interest for restructured remaining loan
 }
 
 export const loanService = {
@@ -125,7 +128,7 @@ export const loanService = {
   },
 
   async receivePayment(input: ReceivePaymentInput) {
-    const { loanId, installmentId, amount, finePaid = 0, paymentType, paymentMethod, paymentDate, note, newDueDate, createdBy } = input
+    const { loanId, installmentId, amount, finePaid = 0, paymentType, paymentMethod, paymentDate, note, newDueDate, createdBy, explicitPrincipal, explicitInterest, newInterestAmount } = input
 
     if (finePaid > amount) throw new AppError(400, 'ค่าปรับต้องไม่เกินยอดรับทั้งหมด')
 
@@ -162,6 +165,12 @@ export const loanService = {
         overPayment = Math.max(0, loanAmount - remainingInterest - remainingPrincipal)
         newLoanStatus = 'completed'
         cashTxnType = 'principal_in'
+      } else if (paymentType === 'partial' && loan.loan_type === 'single' && explicitPrincipal !== undefined) {
+        // single+partial with admin-specified split — use exact amounts provided
+        principalPaid = Math.min(explicitPrincipal, remainingPrincipal)
+        interestPaid = Math.min(explicitInterest ?? 0, remainingInterest)
+        overPayment = Math.max(0, loanAmount - principalPaid - interestPaid)
+        cashTxnType = principalPaid > 0 ? 'principal_in' : 'interest_in'
       } else if (installmentId) {
         // installment payment — use pre-calculated portions from the installment record
         const inst = await trx('loan_installments').where({ id: installmentId }).first()
@@ -277,6 +286,22 @@ export const loanService = {
           closed_date: finalStatus === 'completed' ? paymentDate : null,
           updated_at: new Date(),
         })
+      }
+
+      // single+partial with newInterestAmount: restructure loan to remaining terms (same as adjustLoanAmounts)
+      if (paymentType === 'partial' && loan.loan_type === 'single' && newInterestAmount !== undefined) {
+        const newRemainingPrincipal = remainingPrincipal - principalPaid
+        if (newRemainingPrincipal > 0) {
+          const newTotalAmount = newRemainingPrincipal + newInterestAmount
+          await trx('loans').where({ id: loanId }).update({
+            principal_amount: newRemainingPrincipal,
+            total_amount: newTotalAmount,
+            interest_rate: newInterestAmount / newRemainingPrincipal,
+            paid_principal: 0,
+            paid_interest: 0,
+            updated_at: new Date(),
+          })
+        }
       }
 
       // Cash in transaction — record full amount received (over_payment tracked in payment record)

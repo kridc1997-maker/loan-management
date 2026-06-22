@@ -7,17 +7,31 @@ import { loanApi } from '../../api/endpoints'
 import type { Loan, Installment, PaymentType } from '../../types'
 import { useAppStore } from '../../stores/appStore'
 
-const paymentTypeOptions: { value: PaymentType; label: string; desc: string }[] = [
-  { value: 'normal', label: 'ชำระปกติ', desc: 'ชำระตามยอดที่กำหนด' },
-  { value: 'partial', label: 'ชำระบางส่วน', desc: 'ชำระน้อยกว่ายอดที่กำหนด' },
-  { value: 'full', label: 'ชำระทั้งหมด', desc: 'ปิดสัญญา ชำระยอดคงเหลือทั้งหมด' },
-  { value: 'rollover', label: 'ต่อดอก (Rollover)', desc: 'รับดอก แล้วยืดเงินต้นออกไป' },
-]
+type PaymentOption = { value: PaymentType; label: string; desc: string }
 
-const flexiblePaymentTypeOptions: { value: PaymentType; label: string; desc: string }[] = [
-  { value: 'partial', label: 'ชำระบางส่วน', desc: 'จ่ายยอดใดก็ได้' },
-  { value: 'full', label: 'ชำระทั้งหมด', desc: 'ปิดสัญญา ชำระยอดคงเหลือทั้งหมด' },
-]
+const PAYMENT_OPTIONS_BY_TYPE: Record<string, PaymentOption[]> = {
+  single: [
+    { value: 'partial',  label: 'ชำระบางส่วน',       desc: 'ระบุยอดต้น+ดอกที่จ่าย และดอกใหม่สำหรับยอดที่เหลือ' },
+    { value: 'full',     label: 'ชำระทั้งหมด',        desc: 'ปิดสัญญา ชำระยอดคงเหลือทั้งหมด' },
+    { value: 'rollover', label: 'ต่อดอก (Rollover)',  desc: 'รับดอก แล้วยืดเงินต้นออกไป' },
+  ],
+  installment: [
+    { value: 'normal', label: 'ชำระปกติ',    desc: 'ชำระตามงวดที่กำหนด' },
+    { value: 'full',   label: 'ชำระทั้งหมด', desc: 'ปิดสัญญาก่อนครบกำหนด' },
+  ],
+  daily: [
+    { value: 'normal', label: 'ชำระปกติ',    desc: 'ชำระตามยอดที่กำหนด' },
+    { value: 'full',   label: 'ชำระทั้งหมด', desc: 'ปิดสัญญาก่อนครบกำหนด' },
+  ],
+  flexible: [
+    { value: 'partial', label: 'ชำระบางส่วน', desc: 'จ่ายยอดใดก็ได้' },
+    { value: 'full',    label: 'ชำระทั้งหมด', desc: 'ปิดสัญญา ชำระยอดคงเหลือทั้งหมด' },
+  ],
+}
+
+const DEFAULT_TYPE_BY_LOAN: Record<string, PaymentType> = {
+  single: 'partial', installment: 'normal', daily: 'normal', flexible: 'partial',
+}
 
 export default function ReceivePayment() {
   const location = useLocation()
@@ -39,6 +53,11 @@ export default function ReceivePayment() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // single+partial explicit split fields
+  const [partialPrincipal, setPartialPrincipal] = useState('')
+  const [partialInterest, setPartialInterest] = useState('')
+  const [newInterestAmount, setNewInterestAmount] = useState('')
+
   // Convert single → flexible
   const [showConvertModal, setShowConvertModal] = useState(false)
   const [converting, setConverting] = useState(false)
@@ -54,7 +73,7 @@ export default function ReceivePayment() {
       loanApi.get(preloadLoanId).then((res) => {
         const loan = res.data.data
         setSelectedLoan(loan)
-        if (loan.loanType === 'flexible') setPaymentType('partial')
+        setPaymentType(DEFAULT_TYPE_BY_LOAN[loan.loanType] ?? 'normal')
       })
     }
   }, [preloadLoanId])
@@ -81,19 +100,24 @@ export default function ReceivePayment() {
   const overdueCount = selectedLoan ? daysOverdue(selectedLoan.dueDate) : 0
   const pendingInstallments = installments.filter((i) => i.status !== 'paid')
   const isFlexible = selectedLoan?.loanType === 'flexible'
+  const isSingle = selectedLoan?.loanType === 'single'
+  const isSinglePartial = isSingle && paymentType === 'partial'
 
   const currentInstallment = (!isFlexible) ? pendingInstallments[0] : undefined
-  const activePaymentOptions = isFlexible ? flexiblePaymentTypeOptions : paymentTypeOptions
+  const activePaymentOptions = PAYMENT_OPTIONS_BY_TYPE[selectedLoan?.loanType ?? ''] ?? []
 
-  const remainingBalance = selectedLoan
-    ? selectedLoan.totalAmount - selectedLoan.paidPrincipal - selectedLoan.paidInterest
-    : 0
+  const remainingPrincipal = selectedLoan ? selectedLoan.principalAmount - selectedLoan.paidPrincipal : 0
+  const remainingInterest  = selectedLoan ? selectedLoan.interestAmount - selectedLoan.paidInterest : 0
+  const remainingBalance   = remainingPrincipal + remainingInterest
 
   const suggestedAmount =
     paymentType === 'normal' && currentInstallment ? currentInstallment.amountDue
     : paymentType === 'full' && selectedLoan ? remainingBalance
-    : paymentType === 'rollover' && selectedLoan ? selectedLoan.interestAmount - selectedLoan.paidInterest
+    : paymentType === 'rollover' && selectedLoan ? remainingInterest
     : 0
+
+  // for single+partial: total = principal + interest entered by admin
+  const singlePartialTotal = (Number(partialPrincipal) || 0) + (Number(partialInterest) || 0)
 
   const handleUpdateDueDate = () => {
     if (!selectedLoan || !extendDueDate || updatingDueDate) return
@@ -124,14 +148,16 @@ export default function ReceivePayment() {
   }
 
   const fine = Number(fineAmount) || 0
-  const totalReceived = (Number(amount) || 0) + fine
+  const loanAmount = isSinglePartial ? singlePartialTotal : (Number(amount) || 0)
+  const totalReceived = loanAmount + fine
 
   const handleSubmit = () => {
     if (!selectedLoan || submitting) return
     if (totalReceived <= 0) return
+    if (isSinglePartial && singlePartialTotal <= 0) return
     setSubmitting(true)
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       amount: totalReceived,
       ...(fine > 0 ? { finePaid: fine } : {}),
       paymentType,
@@ -140,9 +166,12 @@ export default function ReceivePayment() {
       note,
       ...(paymentType === 'rollover' && newDueDate ? { newDueDate } : {}),
       ...(currentInstallment ? { installmentId: currentInstallment.id } : {}),
+      ...(isSinglePartial && partialPrincipal ? { explicitPrincipal: Number(partialPrincipal) } : {}),
+      ...(isSinglePartial && partialInterest  ? { explicitInterest:  Number(partialInterest)  } : {}),
+      ...(isSinglePartial && newInterestAmount ? { newInterestAmount: Number(newInterestAmount) } : {}),
     }
 
-    loanApi.payment(selectedLoan.id, payload as any).then(() => {
+    loanApi.payment(selectedLoan.id, payload as any).then((res: any) => {
       const fineStr = fine > 0 ? ` (ค่าปรับ ${formatCurrency(fine)})` : ''
       let msg = ''
       if (paymentType === 'rollover') {
@@ -177,6 +206,9 @@ export default function ReceivePayment() {
               setInstallments([])
               setAmount('')
               setFineAmount('')
+              setPartialPrincipal('')
+              setPartialInterest('')
+              setNewInterestAmount('')
               setSearch('')
               setSearchResults([])
             }}
@@ -425,7 +457,10 @@ export default function ReceivePayment() {
                     value={opt.value}
                     checked={paymentType === opt.value}
                     onChange={() => {
-                      setPaymentType(opt.value)
+                      setPaymentType(opt.value as PaymentType)
+                      setPartialPrincipal('')
+                      setPartialInterest('')
+                      setNewInterestAmount('')
                       if (suggestedAmount > 0) setAmount(String(suggestedAmount))
                     }}
                     className="mt-0.5 accent-blue-600"
@@ -439,11 +474,12 @@ export default function ReceivePayment() {
             </div>
           </div>
 
+          {/* rollover extra field */}
           {paymentType === 'rollover' && (
             <div className="p-3 bg-purple-50 rounded-xl border border-purple-100">
               <div className="flex items-center gap-2 mb-2">
                 <RefreshCw size={14} className="text-purple-600" />
-                <p className="text-xs font-semibold text-purple-800">ต่อดอก — ยืดเงินต้น {formatCurrency(selectedLoan.principalAmount)} ออกไป</p>
+                <p className="text-xs font-semibold text-purple-800">ต่อดอก — ยืดเงินต้น {formatCurrency(selectedLoan.principalAmount)} ออกไป · ดอกค้าง {formatCurrency(remainingInterest)}</p>
               </div>
               <div>
                 <label className="label">วันครบกำหนดใหม่</label>
@@ -452,31 +488,100 @@ export default function ReceivePayment() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">ยอดชำระสัญญา (ต้น+ดอก) (฿) *</label>
-              <input
-                type="number"
-                className="input"
-                placeholder={suggestedAmount > 0 ? String(suggestedAmount) : '0'}
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-              {suggestedAmount > 0 && (
-                <button
-                  type="button"
-                  className="mt-1 text-xs text-blue-600 hover:underline"
-                  onClick={() => setAmount(String(suggestedAmount))}
-                >
-                  ใส่ยอดแนะนำ {formatCurrency(suggestedAmount)}
-                </button>
+          {/* single+partial: explicit principal/interest split */}
+          {isSinglePartial && (
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-blue-800">ระบุยอดที่จ่ายในครั้งนี้</p>
+                <p className="text-xs text-blue-600">เงินต้นคงค้าง {formatCurrency(remainingPrincipal)} · ดอกคงค้าง {formatCurrency(remainingInterest)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">ยอดต้นที่จ่าย (฿)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder={`สูงสุด ${formatCurrency(remainingPrincipal)}`}
+                    value={partialPrincipal}
+                    min="0"
+                    max={remainingPrincipal}
+                    onChange={(e) => setPartialPrincipal(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label">ยอดดอกที่จ่าย (฿)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    placeholder={`สูงสุด ${formatCurrency(remainingInterest)}`}
+                    value={partialInterest}
+                    min="0"
+                    onChange={(e) => setPartialInterest(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="label">ดอกเบี้ยใหม่สำหรับยอดที่เหลือ (฿) <span className="text-gray-400 font-normal">(ถ้าต้องการ restructure)</span></label>
+                <input
+                  type="number"
+                  className="input"
+                  placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยนดอก"
+                  value={newInterestAmount}
+                  min="0"
+                  onChange={(e) => setNewInterestAmount(e.target.value)}
+                />
+                {newInterestAmount && partialPrincipal && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    ยอดใหม่หลัง restructure: ต้น {formatCurrency(remainingPrincipal - (Number(partialPrincipal) || 0))} + ดอก {formatCurrency(Number(newInterestAmount))}
+                    {' '}= {formatCurrency((remainingPrincipal - (Number(partialPrincipal) || 0)) + Number(newInterestAmount))}
+                  </p>
+                )}
+              </div>
+              {singlePartialTotal > 0 && (
+                <div className="flex justify-between text-xs font-semibold text-blue-800 pt-1 border-t border-blue-200">
+                  <span>รวมรับจากสัญญา</span>
+                  <span>{formatCurrency(singlePartialTotal)}</span>
+                </div>
               )}
             </div>
+          )}
+
+          {/* normal amount field — hidden for single+partial */}
+          {!isSinglePartial && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">ยอดชำระสัญญา (ต้น+ดอก) (฿) *</label>
+                <input
+                  type="number"
+                  className="input"
+                  placeholder={suggestedAmount > 0 ? String(suggestedAmount) : '0'}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+                {suggestedAmount > 0 && (
+                  <button
+                    type="button"
+                    className="mt-1 text-xs text-blue-600 hover:underline"
+                    onClick={() => setAmount(String(suggestedAmount))}
+                  >
+                    ใส่ยอดแนะนำ {formatCurrency(suggestedAmount)}
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className="label">วันที่รับ</label>
+                <input type="date" className="input" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {/* date field for single+partial (standalone) */}
+          {isSinglePartial && (
             <div>
               <label className="label">วันที่รับ</label>
               <input type="date" className="input" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
             </div>
-          </div>
+          )}
 
           {/* Fine / Penalty field */}
           <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 space-y-2">
