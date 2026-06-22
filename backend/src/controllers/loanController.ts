@@ -158,6 +158,15 @@ export const loanController = {
     }
   },
 
+  async markComplete(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const result = await loanService.markComplete(Number(req.params.id), req.user?.userId)
+      res.json({ success: true, data: camelize(result) })
+    } catch (err) {
+      next(err)
+    }
+  },
+
   async adjustAmounts(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const body = adjustAmountsSchema.parse(req.body)

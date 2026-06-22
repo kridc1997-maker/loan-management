@@ -36,6 +36,8 @@ export default function LoanDetail() {
   const [adjustTotal, setAdjustTotal] = useState('')
   const [adjusting, setAdjusting] = useState(false)
 
+  const [closingLoan, setClosingLoan] = useState(false)
+
   useEffect(() => {
     if (!id) return
     Promise.all([
@@ -46,6 +48,17 @@ export default function LoanDetail() {
       setPayments(pRes.data.data ?? [])
     }).finally(() => setLoading(false))
   }, [id])
+
+  const handleMarkComplete = () => {
+    if (!loan || closingLoan) return
+    setClosingLoan(true)
+    loanApi.markComplete(loan.id).then((res) => {
+      setLoan(res.data.data)
+      addToast('success', `ปิดสัญญา ${loan.loanNumber} เรียบร้อยแล้ว`)
+    }).catch((err) => {
+      addToast('error', err?.response?.data?.error?.message ?? 'เกิดข้อผิดพลาด')
+    }).finally(() => setClosingLoan(false))
+  }
 
   const handleAdjust = () => {
     if (!loan || adjusting) return
@@ -135,6 +148,15 @@ export default function LoanDetail() {
               className="btn-secondary w-fit"
             >
               <Pencil size={14} /> แก้ไขยอด
+            </button>
+          )}
+          {['active', 'overdue'].includes(loan.status) && isInstallmentBased(loan.loanType) && loan.paidInstallments >= loan.totalInstallments && (
+            <button
+              onClick={handleMarkComplete}
+              disabled={closingLoan}
+              className="btn-secondary w-fit text-green-700 border-green-300 hover:bg-green-50 disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={closingLoan ? 'animate-spin' : ''} /> ปิดสัญญา
             </button>
           )}
           {['active', 'overdue'].includes(loan.status) && (

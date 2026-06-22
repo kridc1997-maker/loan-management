@@ -228,12 +228,21 @@ export const loanService = {
       }
 
       // Determine if loan is complete
-      // installment/daily: complete when all installments paid (pre-paid installments don't create payment records,
-      // so paid_principal/interest SUM from payments table may not reflect all installments)
+      // installment/daily: check paid_installments counter AND verify no unpaid installment records remain
+      // (belt-and-suspenders: pre-paid installments don't create payment records so counter may differ)
       // single/flexible: complete when paid principal+interest covers all remaining amounts
-      const allPaid = isInstallmentBased(loan.loan_type)
-        ? newPaidInstallments >= Number(loan.total_installments)
-        : newPaidPrincipal >= Number(loan.principal_amount) && newPaidInterest >= totalInterest
+      let allPaid: boolean
+      if (isInstallmentBased(loan.loan_type)) {
+        const unpaidCount = await trx('loan_installments')
+          .where('loan_id', loanId)
+          .whereIn('status', ['pending', 'partial'])
+          .count('id as cnt')
+          .first()
+        allPaid = newPaidInstallments >= Number(loan.total_installments)
+          || Number((unpaidCount as any)?.cnt ?? 1) === 0
+      } else {
+        allPaid = newPaidPrincipal >= Number(loan.principal_amount) && newPaidInterest >= totalInterest
+      }
       let finalStatus = allPaid ? 'completed' : newLoanStatus
 
       // Revert overdue → active for installment/daily loans if no more overdue installments remain
@@ -396,6 +405,34 @@ export const loanService = {
       })
     })
 
+    return loanRepo.findById(loanId)
+  },
+
+  async markComplete(loanId: number, createdBy?: number) {
+    const loan = await loanRepo.findById(loanId)
+    if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
+    if (loan.status === 'completed') throw new AppError(400, 'สัญญานี้ปิดแล้ว')
+    if (['bad_debt', 'written_off'].includes(loan.status)) throw new AppError(400, 'ไม่สามารถปิดสัญญานี้ได้')
+
+    if (isInstallmentBased(loan.loan_type)) {
+      const unpaid = await db('loan_installments')
+        .where('loan_id', loanId)
+        .whereIn('status', ['pending', 'partial'])
+        .count('id as cnt')
+        .first()
+      if (Number((unpaid as any)?.cnt ?? 1) > 0) throw new AppError(400, 'ยังมีงวดที่ยังไม่ได้ชำระ')
+    } else {
+      const totalInterest = Number(loan.total_amount) - Number(loan.principal_amount)
+      const fullyPaid = Number(loan.paid_principal) >= Number(loan.principal_amount)
+        && Number(loan.paid_interest) >= totalInterest
+      if (!fullyPaid) throw new AppError(400, 'ยอดชำระยังไม่ครบ')
+    }
+
+    await db('loans').where({ id: loanId }).update({ status: 'completed', closed_date: todayStr(), updated_at: new Date() })
+    await db('audit_logs').insert({
+      user_id: createdBy, action: 'MARK_COMPLETE', entity_type: 'loan', entity_id: loanId,
+      new_data: JSON.stringify({ status: 'completed' }),
+    })
     return loanRepo.findById(loanId)
   },
 
