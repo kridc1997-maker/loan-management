@@ -195,16 +195,25 @@ export const loanService = {
         created_by: createdBy,
       }).returning('*')
 
-      // Recalculate paid totals from DB (self-healing — avoids drift from manual edits)
-      const paidTotals = await trx('payments')
-        .where({ loan_id: loanId })
-        .select(
-          trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
-          trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
-        )
-        .first()
-      const newPaidPrincipal = Number(paidTotals?.paid_principal ?? 0)
-      const newPaidInterest = Number(paidTotals?.paid_interest ?? 0)
+      // For single loans: use incremental update to preserve rollover resets (paid_interest = 0 after each rollover).
+      // Self-healing SUM would count all historical rollover interest, inflating paid_interest beyond total interest.
+      // For other loan types: self-healing is safe since they don't use rollover resets.
+      let newPaidPrincipal: number
+      let newPaidInterest: number
+      if (loan.loan_type === 'single') {
+        newPaidPrincipal = Number(loan.paid_principal) + principalPaid
+        newPaidInterest = Number(loan.paid_interest) + interestPaid
+      } else {
+        const paidTotals = await trx('payments')
+          .where({ loan_id: loanId })
+          .select(
+            trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
+            trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
+          )
+          .first()
+        newPaidPrincipal = Number(paidTotals?.paid_principal ?? 0)
+        newPaidInterest = Number(paidTotals?.paid_interest ?? 0)
+      }
 
       // Check if all installments paid
       let newPaidInstallments = loan.paid_installments
@@ -359,20 +368,17 @@ export const loanService = {
     if (['completed', 'bad_debt', 'written_off'].includes(loan.status)) {
       throw new AppError(400, 'ไม่สามารถแก้ไขสัญญาที่ปิดแล้วได้')
     }
-    if (principalAmount < Number(loan.paid_principal)) {
-      throw new AppError(400, 'เงินต้นใหม่ต้องไม่น้อยกว่าที่ชำระแล้ว')
-    }
-    if (totalAmount < Number(loan.paid_principal) + Number(loan.paid_interest)) {
-      throw new AppError(400, 'ยอดรวมใหม่ต้องไม่น้อยกว่ายอดที่ชำระแล้วทั้งหมด')
-    }
-
     const interestRate = (totalAmount - principalAmount) / principalAmount
 
     await db.transaction(async (trx) => {
+      // Reset paid amounts to 0 — adjusting loan amounts means restructuring to new remaining terms,
+      // so nothing has been paid yet against the new structure (history stays in payments table).
       await trx('loans').where({ id: loanId }).update({
         principal_amount: principalAmount,
         total_amount: totalAmount,
         interest_rate: interestRate,
+        paid_principal: 0,
+        paid_interest: 0,
         updated_at: new Date(),
       })
       await trx('audit_logs').insert({
