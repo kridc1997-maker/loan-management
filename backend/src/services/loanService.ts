@@ -228,7 +228,12 @@ export const loanService = {
       }
 
       // Determine if loan is complete
-      const allPaid = newPaidPrincipal >= Number(loan.principal_amount) && newPaidInterest >= totalInterest
+      // installment/daily: complete when all installments paid (pre-paid installments don't create payment records,
+      // so paid_principal/interest SUM from payments table may not reflect all installments)
+      // single/flexible: complete when paid principal+interest covers all remaining amounts
+      const allPaid = isInstallmentBased(loan.loan_type)
+        ? newPaidInstallments >= Number(loan.total_installments)
+        : newPaidPrincipal >= Number(loan.principal_amount) && newPaidInterest >= totalInterest
       let finalStatus = allPaid ? 'completed' : newLoanStatus
 
       // Revert overdue → active for installment/daily loans if no more overdue installments remain
