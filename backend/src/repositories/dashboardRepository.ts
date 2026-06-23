@@ -18,6 +18,7 @@ export const dashboardRepo = {
       installmentStats,
       newLoansToday,
       expectedTodayRow,
+      expenseMonthRow,
     ] = await Promise.all([
       // Latest cash balance
       db('cash_transactions').select('balance_after').orderBy('id', 'desc').first(),
@@ -51,6 +52,15 @@ export const dashboardRepo = {
       db('loans').whereRaw("issued_date::date = ?::date", [today]).count('id as count').first(),
       // Total received today (actual amount collected)
       db('payments').sum('amount as total').whereRaw("payment_date::date = ?::date", [today]).first(),
+      // Expense this month (expense + capital_out from cash_transactions)
+      db('cash_transactions')
+        .select(
+          db.raw("COALESCE(SUM(CASE WHEN txn_type = 'expense' THEN amount ELSE 0 END), 0) AS expense_total"),
+          db.raw("COALESCE(SUM(CASE WHEN txn_type = 'capital_out' THEN amount ELSE 0 END), 0) AS capital_out_total"),
+        )
+        .whereIn('txn_type', ['expense', 'capital_out'])
+        .whereRaw('txn_date::date >= ?::date', [monthStart])
+        .first(),
     ])
 
     const cashOnHand = Number(cashRow?.balance_after ?? 0)
@@ -73,6 +83,8 @@ export const dashboardRepo = {
       activeLoansCount: Number(activeCountRow?.count ?? 0),
       newLoansToday: Number(newLoansToday?.count ?? 0),
       receivedToday: Number(expectedTodayRow?.total ?? 0),
+      expenseThisMonth: Number(expenseMonthRow?.expense_total ?? 0),
+      capitalOutThisMonth: Number(expenseMonthRow?.capital_out_total ?? 0),
     }
   },
 

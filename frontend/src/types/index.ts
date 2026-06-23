@@ -184,6 +184,8 @@ export interface DashboardSummary {
   activeLoansCount: number
   newLoansToday: number
   receivedToday: number
+  expenseThisMonth: number
+  capitalOutThisMonth: number
 }
 
 export interface CashFlowDay {
