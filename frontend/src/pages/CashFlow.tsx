@@ -102,6 +102,7 @@ export default function CashFlow() {
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0])
   const [dailyTxns, setDailyTxns] = useState<any[]>([])
   const [dailyLoading, setDailyLoading] = useState(false)
+  const [dailyFilter, setDailyFilter] = useState<string | null>(null)
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -403,8 +404,25 @@ export default function CashFlow() {
 
       {/* ═══ Daily Transaction Table ═══ */}
       <div className="card p-0 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-gray-900 flex-shrink-0">รายการรับ-จ่ายรายวัน</h2>
+          <div className="flex items-center gap-1.5">
+            {[
+              { value: null,          label: 'ทั้งหมด' },
+              { value: 'capital_in',  label: 'เพิ่มทุน' },
+              { value: 'capital_out', label: 'ถอนทุน' },
+              { value: 'expense',     label: 'ค่าใช้จ่าย' },
+            ].map((f) => (
+              <button key={String(f.value)} onClick={() => setDailyFilter(f.value)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  dailyFilter === f.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDailyDate((d) => shiftDate(d, -1))}
@@ -432,42 +450,47 @@ export default function CashFlow() {
 
         {dailyLoading ? (
           <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
-        ) : dailyTxns.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-sm text-gray-400">ไม่มีรายการในวันนี้</p>
-          </div>
         ) : (
-          <>
-            {/* Summary bar */}
-            <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex gap-6 text-xs">
-              <span className="text-gray-500">
-                รับเข้า <span className="font-bold text-blue-600">
-                  {formatCurrency(dailyTxns.filter(t => t.direction === 'in').reduce((s, t) => s + Number(t.amount), 0))}
-                </span>
-              </span>
-              <span className="text-gray-500">
-                จ่ายออก <span className="font-bold text-red-500">
-                  {formatCurrency(dailyTxns.filter(t => t.direction === 'out').reduce((s, t) => s + Number(t.amount), 0))}
-                </span>
-              </span>
-              <span className="text-gray-400">{dailyTxns.length} รายการ</span>
-            </div>
+          (() => {
+            const filtered = dailyFilter
+              ? dailyTxns.filter((t: any) => t.txn_type === dailyFilter)
+              : dailyTxns
+            return filtered.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-sm text-gray-400">ไม่มีรายการ{dailyFilter ? 'ประเภทนี้' : ''}ในวันนี้</p>
+              </div>
+            ) : (
+              <>
+                {/* Summary bar */}
+                <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 flex gap-6 text-xs">
+                  <span className="text-gray-500">
+                    รับเข้า <span className="font-bold text-blue-600">
+                      {formatCurrency(filtered.filter((t: any) => t.direction === 'in').reduce((s: number, t: any) => s + Number(t.amount), 0))}
+                    </span>
+                  </span>
+                  <span className="text-gray-500">
+                    จ่ายออก <span className="font-bold text-red-500">
+                      {formatCurrency(filtered.filter((t: any) => t.direction === 'out').reduce((s: number, t: any) => s + Number(t.amount), 0))}
+                    </span>
+                  </span>
+                  <span className="text-gray-400">{filtered.length} รายการ</span>
+                </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                  <tr>
-                    <th className="table-header">เลขที่</th>
-                    <th className="table-header">ประเภท</th>
-                    <th className="table-header">ลูกค้า / รายละเอียด</th>
-                    <th className="table-header">เลขสัญญา</th>
-                    <th className="table-header text-right">รับเข้า</th>
-                    <th className="table-header text-right">จ่ายออก</th>
-                    <th className="table-header text-right">คงเหลือ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dailyTxns.map((t: any) => (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-100">
+                      <tr>
+                        <th className="table-header">เลขที่</th>
+                        <th className="table-header">ประเภท</th>
+                        <th className="table-header">ลูกค้า / รายละเอียด</th>
+                        <th className="table-header">เลขสัญญา</th>
+                        <th className="table-header text-right">รับเข้า</th>
+                        <th className="table-header text-right">จ่ายออก</th>
+                        <th className="table-header text-right">คงเหลือ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                  {filtered.map((t: any) => (
                     <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="table-cell text-xs text-gray-400 font-mono">{t.txn_number}</td>
                       <td className="table-cell">{dailyTxnBadge(t.txn_type)}</td>
@@ -503,10 +526,12 @@ export default function CashFlow() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )
+          })()
         )}
       </div>
 
