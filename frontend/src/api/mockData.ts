@@ -121,6 +121,7 @@ export const mockDashboard: DashboardSummary = {
   receivedToday: 0,
   expenseThisMonth: 0,
   capitalOutThisMonth: 0,
+  capitalInThisMonth: 0,
 }
 
 export const mockCashFlow: CashFlowSummary = {

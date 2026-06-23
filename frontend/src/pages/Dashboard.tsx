@@ -124,7 +124,7 @@ export default function Dashboard() {
           title="กำไรเดือนนี้"
           value={formatCurrency(d.profitThisMonth)}
           sub={`คาดการณ์ ${formatCurrency(d.expectedProfit)}`}
-          sub2={`ถอนทุน ${formatCurrency(d.capitalOutThisMonth)} · ค่าใช้จ่าย ${formatCurrency(d.expenseThisMonth)} · รวม ${formatCurrency(d.capitalOutThisMonth + d.expenseThisMonth)}`}
+          sub2={`รายจ่ายสุทธิ ${formatCurrency(d.capitalOutThisMonth + d.expenseThisMonth - d.capitalInThisMonth)}`}
           icon={<TrendingUp size={18} className="text-emerald-600" />}
           iconBg="bg-emerald-50"
         />
