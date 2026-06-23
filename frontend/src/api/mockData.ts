@@ -119,6 +119,8 @@ export const mockDashboard: DashboardSummary = {
   activeLoansCount: 23,
   newLoansToday: 2,
   receivedToday: 0,
+  expenseThisMonth: 0,
+  capitalOutThisMonth: 0,
 }
 
 export const mockCashFlow: CashFlowSummary = {
