@@ -35,9 +35,13 @@ const PIE_COLOR_LIST = ['#3b82f6', '#22c55e', '#f97316', '#a855f7', '#94a3b8']
 
 const ChartTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
+  // Auto-format "YYYY-MM" month keys to Thai abbreviations
+  const displayLabel = typeof label === 'string' && /^\d{4}-\d{2}$/.test(label)
+    ? THAI_MONTHS[parseInt(label.split('-')[1]) - 1] ?? label
+    : label
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-lg p-3 text-xs">
-      {label && <p className="font-semibold text-gray-600 mb-2">{label}</p>}
+      {displayLabel && <p className="font-semibold text-gray-600 mb-2">{displayLabel}</p>}
       {payload.map((p: any) => (
         <div key={p.name} className="flex items-center gap-2 mb-1">
           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.color }} />
@@ -614,7 +618,7 @@ export default function ExecutiveDashboard() {
                 axisLine={false}
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
               />
-              <Tooltip content={<ChartTooltip />} labelFormatter={formatMonth} />
+              <Tooltip content={<ChartTooltip />} />
               <Line
                 type="monotone"
                 dataKey="interest"
@@ -653,7 +657,7 @@ export default function ExecutiveDashboard() {
                 axisLine={false}
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
               />
-              <Tooltip content={<ChartTooltip />} labelFormatter={formatMonth} />
+              <Tooltip content={<ChartTooltip />} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Line
                 type="monotone"
