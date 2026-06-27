@@ -19,52 +19,22 @@ type InsightType = 'good' | 'bad' | 'warn' | 'info'
 interface Insight { text: string; type: InsightType }
 
 function generateInsights(d: DashboardSummary): Insight[] {
-  const items: Insight[] = []
   const netExpense = d.capitalOutThisMonth + d.expenseThisMonth - d.capitalInThisMonth
   const netProfit = d.profitThisMonth - netExpense
-
-  if (netExpense > 0) {
-    items.push({
-      text: netProfit >= 0
-        ? `กำไรสุทธิเดือนนี้ ${formatCurrency(netProfit)} หลังหักค่าใช้จ่าย`
-        : `ค่าใช้จ่ายเกินกำไร ${formatCurrency(Math.abs(netProfit))} เดือนนี้`,
+  return [
+    {
+      text: `กำไรสุทธิเดือนนี้ ${formatCurrency(netProfit)} หลังหักค่าใช้จ่าย`,
       type: netProfit >= 0 ? 'good' : 'bad',
-    })
-  }
-
-  if (d.overdueCount === 0) {
-    items.push({ text: 'ไม่มีลูกหนี้ค้างชำระในปัจจุบัน', type: 'good' })
-  } else if (d.overdueCount > 5) {
-    items.push({ text: `มีลูกหนี้ค้างชำระ ${d.overdueCount} ราย ยอด ${formatCurrency(d.overdueAmount)}`, type: 'bad' })
-  } else {
-    items.push({ text: `มีลูกหนี้ค้างชำระ ${d.overdueCount} ราย ควรติดตาม`, type: 'warn' })
-  }
-
-  if (d.badDebtCount === 0) {
-    items.push({ text: 'ไม่มีหนี้เสีย พอร์ตแข็งแรง', type: 'good' })
-  } else {
-    items.push({ text: `หนี้เสีย ${d.badDebtCount} ราย รวม ${formatCurrency(d.badDebtAmount)}`, type: 'bad' })
-  }
-
-  if (d.collectionRate >= 0.9) {
-    items.push({ text: `อัตราเก็บหนี้ดีเยี่ยม ${(d.collectionRate * 100).toFixed(0)}%`, type: 'good' })
-  } else if (d.collectionRate >= 0.7) {
-    items.push({ text: `อัตราเก็บหนี้ ${(d.collectionRate * 100).toFixed(0)}%`, type: 'info' })
-  } else if (d.collectionRate > 0) {
-    items.push({ text: `อัตราเก็บหนี้ต่ำ ${(d.collectionRate * 100).toFixed(0)}% ควรติดตาม`, type: 'warn' })
-  }
-
-  if (d.profitToday > 0) {
-    items.push({ text: `รับชำระวันนี้ ${formatCurrency(d.receivedToday)} กำไร ${formatCurrency(d.profitToday)}`, type: 'info' })
-  }
-
-  if (d.newLoansToday > 0) {
-    items.push({ text: `ปล่อยกู้ใหม่วันนี้ ${d.newLoansToday} สัญญา`, type: 'info' })
-  } else if (d.expectedProfit > 0) {
-    items.push({ text: `กำไรคาดการณ์ ${formatCurrency(d.expectedProfit)} ยังรอเก็บ`, type: 'info' })
-  }
-
-  return items.slice(0, 6)
+    },
+    {
+      text: `รับชำระวันนี้ ${formatCurrency(d.receivedToday)} กำไร ${formatCurrency(d.profitToday)}`,
+      type: d.profitToday > 0 ? 'info' : 'warn',
+    },
+    {
+      text: `คาดรับชำระใน 7 วันข้างหน้า ${formatCurrency(d.forecast7Days)}`,
+      type: d.forecast7Days > 0 ? 'info' : 'warn',
+    },
+  ]
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {

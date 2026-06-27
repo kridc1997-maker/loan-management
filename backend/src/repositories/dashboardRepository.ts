@@ -19,6 +19,7 @@ export const dashboardRepo = {
       newLoansToday,
       expectedTodayRow,
       expenseMonthRow,
+      forecast7Raw,
     ] = await Promise.all([
       // Latest cash balance
       db('cash_transactions').select('balance_after').orderBy('id', 'desc').first(),
@@ -62,6 +63,22 @@ export const dashboardRepo = {
         .whereIn('txn_type', ['expense', 'capital_out', 'capital_in'])
         .whereRaw('txn_date::date >= ?::date', [monthStart])
         .first(),
+      db.raw(`
+        SELECT COALESCE(SUM(amount), 0)::numeric AS total FROM (
+          SELECT (li.amount_due - li.paid_amount) AS amount
+          FROM loan_installments li
+          JOIN loans l ON l.id = li.loan_id
+          WHERE l.status IN ('active','overdue')
+            AND li.status NOT IN ('paid')
+            AND li.due_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + 6
+          UNION ALL
+          SELECT (l.total_amount - l.paid_principal - l.paid_interest) AS amount
+          FROM loans l
+          WHERE l.status IN ('active','overdue')
+            AND l.loan_type IN ('single','flexible')
+            AND l.due_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + 6
+        ) sub
+      `),
     ])
 
     const cashOnHand = Number(cashRow?.balance_after ?? 0)
@@ -87,6 +104,7 @@ export const dashboardRepo = {
       expenseThisMonth: Number(expenseMonthRow?.expense_total ?? 0),
       capitalOutThisMonth: Number(expenseMonthRow?.capital_out_total ?? 0),
       capitalInThisMonth: Number(expenseMonthRow?.capital_in_total ?? 0),
+      forecast7Days: Number((forecast7Raw as any).rows?.[0]?.total ?? 0),
     }
   },
 

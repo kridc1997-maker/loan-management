@@ -188,6 +188,7 @@ export interface DashboardSummary {
   expenseThisMonth: number
   capitalOutThisMonth: number
   capitalInThisMonth: number
+  forecast7Days: number
 }
 
 export interface CashFlowDay {
