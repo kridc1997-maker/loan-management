@@ -279,17 +279,31 @@ export default function ExecutiveDashboard() {
             onClick={() => navigate('/loans')}
           />
 
-          {/* Card 3: กำไรเดือนนี้ */}
-          <KpiCard
-            title="กำไรเดือนนี้"
-            value={formatCurrency(kpi.profitThisMonth)}
-            sub={kpi.profitLastMonth > 0 ? `เดือนก่อน ${formatCurrency(kpi.profitLastMonth)}` : 'ดอกเบี้ยที่เก็บได้'}
-            icon={<TrendingUp size={18} className="text-emerald-600" />}
-            iconBg="bg-emerald-50"
-            trend={kpi.profitLastMonth > 0
-              ? { value: `${profitChangePct >= 0 ? '+' : ''}${profitChangePct.toFixed(1)}% vs เดือนก่อน`, positive: profitChangePct >= 0 }
-              : undefined}
-          />
+          {/* Card 3: กำไรเดือนนี้ (custom — expense + net profit) */}
+          <div className="kpi-card">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">กำไรเดือนนี้</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(kpi.profitThisMonth)}</p>
+                {kpi.netExpense !== 0 && (
+                  <p className="mt-0.5 text-xs font-medium text-red-500">
+                    −{formatCurrency(Math.abs(kpi.netExpense))} ค่าใช้จ่ายรวม
+                  </p>
+                )}
+                <p className="mt-0.5 text-xs text-gray-600">
+                  (กำไรสุทธิ {formatCurrency(kpi.profitThisMonth - kpi.netExpense)})
+                </p>
+              </div>
+              <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-50">
+                <TrendingUp size={18} className="text-emerald-600" />
+              </div>
+            </div>
+            {kpi.profitLastMonth > 0 && (
+              <p className={`mt-1 text-xs font-medium flex items-center gap-0.5 ${profitChangePct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {profitChangePct >= 0 ? '▲' : '▼'} {profitChangePct >= 0 ? '+' : ''}{profitChangePct.toFixed(1)}% vs เดือนก่อน
+              </p>
+            )}
+          </div>
 
           {/* Card 4: ROI */}
           <KpiCard
@@ -425,6 +439,29 @@ export default function ExecutiveDashboard() {
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SECTION 9 — Quick Insights (moved here, after Business Health)
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Insights</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {insights.map((item, idx) => {
+            const cfg = {
+              good: { bg: 'bg-green-50 border-green-100', text: 'text-green-800', icon: <CheckCircle size={15} className="text-green-500 flex-shrink-0 mt-0.5" /> },
+              bad:  { bg: 'bg-red-50 border-red-100',   text: 'text-red-800',   icon: <XCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5" /> },
+              warn: { bg: 'bg-yellow-50 border-yellow-100', text: 'text-yellow-800', icon: <AlertTriangle size={15} className="text-yellow-500 flex-shrink-0 mt-0.5" /> },
+              info: { bg: 'bg-blue-50 border-blue-100', text: 'text-blue-800', icon: <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" /> },
+            }[item.type]
+            return (
+              <div key={idx} className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${cfg.bg}`}>
+                {cfg.icon}
+                <p className={`text-sm font-medium leading-snug ${cfg.text}`}>{item.text}</p>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -742,29 +779,6 @@ export default function ExecutiveDashboard() {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 9 — Quick Insights
-      ══════════════════════════════════════════════════════════════════════ */}
-      <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Insights</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {insights.map((item, idx) => {
-            const cfg = {
-              good: { bg: 'bg-green-50 border-green-100', text: 'text-green-800', icon: <CheckCircle size={15} className="text-green-500 flex-shrink-0 mt-0.5" /> },
-              bad:  { bg: 'bg-red-50 border-red-100',   text: 'text-red-800',   icon: <XCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5" /> },
-              warn: { bg: 'bg-yellow-50 border-yellow-100', text: 'text-yellow-800', icon: <AlertTriangle size={15} className="text-yellow-500 flex-shrink-0 mt-0.5" /> },
-              info: { bg: 'bg-blue-50 border-blue-100', text: 'text-blue-800', icon: <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" /> },
-            }[item.type]
-            return (
-              <div key={idx} className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${cfg.bg}`}>
-                {cfg.icon}
-                <p className={`text-sm font-medium leading-snug ${cfg.text}`}>{item.text}</p>
-              </div>
-            )
-          })}
         </div>
       </div>
 

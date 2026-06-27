@@ -179,6 +179,7 @@ export const dashboardRepo = {
       forecastSingleRows,
       revenueTrendRows,
       portfolioGrowthRows,
+      expenseMonthRow,
     ] = await Promise.all([
       db('cash_transactions').select('balance_after').orderBy('id', 'desc').first(),
       db('cash_transactions')
@@ -259,6 +260,15 @@ export const dashboardRepo = {
         .whereRaw('snapshot_month >= ?::date', [twelveMonthsAgo])
         .select('snapshot_month', 'outstanding_principal', 'interest_collected')
         .orderBy('snapshot_month'),
+      db('cash_transactions')
+        .select(
+          db.raw("COALESCE(SUM(CASE WHEN txn_type = 'expense' THEN amount ELSE 0 END), 0) AS expense_total"),
+          db.raw("COALESCE(SUM(CASE WHEN txn_type = 'capital_out' THEN amount ELSE 0 END), 0) AS capital_out_total"),
+          db.raw("COALESCE(SUM(CASE WHEN txn_type = 'capital_in' THEN amount ELSE 0 END), 0) AS capital_in_total"),
+        )
+        .whereIn('txn_type', ['expense', 'capital_out', 'capital_in'])
+        .whereRaw('txn_date::date >= ?::date', [monthStart])
+        .first(),
     ])
 
     const [repeatRaw, riskMonitorRaw, topCustomersRaw] = await Promise.all([
@@ -280,11 +290,11 @@ export const dashboardRepo = {
         FROM loans l
         JOIN customers c ON c.id = l.customer_id
         LEFT JOIN (
-          SELECT rl.customer_id, COUNT(lr.id) AS rollover_count
-          FROM loan_rollovers lr
-          JOIN loans rl ON rl.id = lr.original_loan_id
-          GROUP BY rl.customer_id
-        ) rc ON rc.customer_id = l.customer_id
+          SELECT p.loan_id, COUNT(p.id)::int AS rollover_count
+          FROM payments p
+          WHERE p.payment_type = 'rollover'
+          GROUP BY p.loan_id
+        ) rc ON rc.loan_id = l.id
         WHERE l.status IN ('active', 'overdue')
           AND (
             l.status = 'overdue'
@@ -329,6 +339,11 @@ export const dashboardRepo = {
     const badDebtCount = Number(badDebtRow?.count ?? 0)
     const badDebtAmount = Number(badDebtRow?.amount ?? 0)
     const totalAsset = cashOnHand + outstandingPrincipal
+
+    const expenseThisMonth = Number(expenseMonthRow?.expense_total ?? 0)
+    const capitalOutThisMonth = Number(expenseMonthRow?.capital_out_total ?? 0)
+    const capitalInThisMonth = Number(expenseMonthRow?.capital_in_total ?? 0)
+    const netExpense = expenseThisMonth + capitalOutThisMonth - capitalInThisMonth
 
     const repeatData = (repeatRaw as any).rows?.[0] ?? {}
     const totalCustomers = Number(repeatData.total_customers ?? 0)
@@ -409,6 +424,7 @@ export const dashboardRepo = {
         healthOverdueScore: overdueScore,
         healthActiveScore: activeScore,
         healthBadDebtScore: badDebtScore,
+        expenseThisMonth, capitalOutThisMonth, capitalInThisMonth, netExpense,
       },
       cashForecast,
       portfolioByType: portfolioByTypeRows.map((r: any) => ({

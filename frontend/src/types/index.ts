@@ -291,6 +291,10 @@ export interface ExecKpi {
   healthOverdueScore: number
   healthActiveScore: number
   healthBadDebtScore: number
+  expenseThisMonth: number
+  capitalOutThisMonth: number
+  capitalInThisMonth: number
+  netExpense: number
 }
 
 export interface ExecForecastDay {
