@@ -215,6 +215,7 @@ function camelize(r: any) {
     paidInstallments: r.paid_installments,
     paidPrincipal: Number(r.paid_principal),
     paidInterest: Number(r.paid_interest),
+    termDays: r.term_days != null ? Number(r.term_days) : null,
     issuedDate: r.issued_date, dueDate: r.due_date, closedDate: r.closed_date,
     status: r.status, note: r.note,
     installments: r.installments,

@@ -65,6 +65,7 @@ export interface Loan {
   paidInstallments: number
   paidPrincipal: number
   paidInterest: number
+  termDays?: number | null
   issuedDate: string
   dueDate: string
   closedDate?: string

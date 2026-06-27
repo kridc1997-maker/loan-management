@@ -61,6 +61,7 @@ export const loanService = {
         installment_amount: installmentAmount,
         issued_date: issuedDate,
         due_date: dueDate,
+        term_days: durationDays,
         status: 'active',
         note,
         created_by: createdBy,
