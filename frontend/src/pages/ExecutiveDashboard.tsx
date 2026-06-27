@@ -500,7 +500,7 @@ export default function ExecutiveDashboard() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), 'ยอด']}
+                    formatter={(value: any) => [formatCurrency(Number(value ?? 0)), 'ยอด']}
                   />
                 </PieChart>
               </ResponsiveContainer>
