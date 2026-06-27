@@ -285,6 +285,14 @@ export default function LoanDetail() {
             <p className="text-xs text-gray-400">ครบกำหนด</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">{formatDate(loan.dueDate)}</p>
           </div>
+          {loan.loanType === 'single' && (
+            <div>
+              <p className="text-xs text-gray-400">จำนวนวันที่กู้</p>
+              <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                {Math.round((new Date(loan.dueDate).getTime() - new Date(loan.issuedDate).getTime()) / 86400000)} วัน
+              </p>
+            </div>
+          )}
           {isInstallmentBased(loan.loanType) && (
             <div>
               <p className="text-xs text-gray-400">งวด</p>
