@@ -155,4 +155,290 @@ export const dashboardRepo = {
       .whereIn('l.status', ['overdue'])
       .orderBy('days_overdue', 'desc')
   },
+
+  async getExecutiveDashboard() {
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const monthStart = `${today.slice(0, 7)}-01`
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
+    const yesterday = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
+    const sevenDaysLater = new Date(now.getTime() + 7 * 86400000).toISOString().split('T')[0]
+    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().split('T')[0]
+
+    const [
+      cashRow,
+      yesterdayCashRow,
+      portfolioRow,
+      profitMonthRow,
+      profitLastMonthRow,
+      overdueRow,
+      badDebtRow,
+      portfolioByTypeRows,
+      forecastInstallmentRows,
+      forecastSingleRows,
+      revenueTrendRows,
+      portfolioGrowthRows,
+    ] = await Promise.all([
+      db('cash_transactions').select('balance_after').orderBy('id', 'desc').first(),
+      db('cash_transactions')
+        .select('balance_after')
+        .whereRaw('txn_date::date <= ?::date', [yesterday])
+        .orderBy('id', 'desc')
+        .first(),
+      db('loans')
+        .whereIn('status', ['active', 'overdue'])
+        .select(
+          db.raw('COALESCE(SUM(principal_amount - paid_principal), 0) AS outstanding_principal'),
+          db.raw('COUNT(*) AS active_count'),
+        )
+        .first(),
+      db('payments')
+        .whereRaw('payment_date::date >= ?::date', [monthStart])
+        .select(db.raw('COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) AS total'))
+        .first(),
+      db('payments')
+        .whereRaw('payment_date::date >= ?::date', [lastMonthStart])
+        .whereRaw('payment_date::date <= ?::date', [lastMonthEnd])
+        .select(db.raw('COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) AS total'))
+        .first(),
+      db('loans')
+        .whereIn('status', ['overdue'])
+        .select(
+          db.raw('COUNT(*) AS count'),
+          db.raw('COALESCE(SUM(principal_amount - paid_principal), 0) AS amount'),
+        )
+        .first(),
+      db('bad_debts')
+        .where('is_recovered', false)
+        .select(
+          db.raw('COUNT(*) AS count'),
+          db.raw('COALESCE(SUM(total_lost), 0) AS amount'),
+        )
+        .first(),
+      db('loans')
+        .whereIn('status', ['active', 'overdue'])
+        .select(
+          'loan_type',
+          db.raw('COALESCE(SUM(principal_amount - paid_principal), 0) AS amount'),
+          db.raw('COUNT(*) AS count'),
+        )
+        .groupBy('loan_type'),
+      db('loan_installments as li')
+        .join('loans as l', 'l.id', 'li.loan_id')
+        .whereIn('l.status', ['active', 'overdue'])
+        .whereNotIn('li.status', ['paid'])
+        .whereRaw('li.due_date::date >= ?::date', [today])
+        .whereRaw('li.due_date::date <= ?::date', [sevenDaysLater])
+        .select(
+          db.raw("to_char(li.due_date::date, 'YYYY-MM-DD') AS due_date"),
+          db.raw('COALESCE(SUM(li.amount_due - li.paid_amount), 0) AS amount'),
+        )
+        .groupByRaw("to_char(li.due_date::date, 'YYYY-MM-DD')")
+        .orderByRaw("to_char(li.due_date::date, 'YYYY-MM-DD')"),
+      db('loans')
+        .whereIn('status', ['active', 'overdue'])
+        .whereIn('loan_type', ['single', 'flexible'])
+        .whereRaw('due_date::date >= ?::date', [today])
+        .whereRaw('due_date::date <= ?::date', [sevenDaysLater])
+        .select(
+          db.raw("to_char(due_date::date, 'YYYY-MM-DD') AS due_date"),
+          db.raw('COALESCE(SUM(total_amount - paid_principal - paid_interest), 0) AS amount'),
+        )
+        .groupByRaw("to_char(due_date::date, 'YYYY-MM-DD')")
+        .orderByRaw("to_char(due_date::date, 'YYYY-MM-DD')"),
+      db('payments')
+        .whereRaw('payment_date::date >= ?::date', [twelveMonthsAgo])
+        .select(
+          db.raw("TO_CHAR(DATE_TRUNC('month', payment_date::date), 'YYYY-MM') AS month"),
+          db.raw('COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) AS interest'),
+        )
+        .groupByRaw("DATE_TRUNC('month', payment_date::date)")
+        .orderBy('month'),
+      db('monthly_snapshots')
+        .whereRaw('snapshot_month >= ?::date', [twelveMonthsAgo])
+        .select('snapshot_month', 'outstanding_principal', 'interest_collected')
+        .orderBy('snapshot_month'),
+    ])
+
+    const [repeatRaw, riskMonitorRaw, topCustomersRaw] = await Promise.all([
+      db.raw(`
+        SELECT
+          COUNT(DISTINCT customer_id)::int AS total_customers,
+          COUNT(DISTINCT CASE WHEN loan_count > 1 THEN customer_id END)::int AS repeat_customers
+        FROM (SELECT customer_id, COUNT(*) AS loan_count FROM loans GROUP BY customer_id) sub
+      `),
+      db.raw(`
+        SELECT
+          l.id AS loan_id, l.loan_number, l.customer_id,
+          c.first_name || ' ' || c.last_name AS customer_name,
+          (l.principal_amount - l.paid_principal)::numeric AS outstanding,
+          GREATEST(0, (CURRENT_DATE - l.due_date::date))::int AS days_overdue,
+          COALESCE(rc.rollover_count, 0)::int AS rollover_count,
+          l.status, c.risk_level,
+          to_char(l.due_date, 'YYYY-MM-DD') AS due_date
+        FROM loans l
+        JOIN customers c ON c.id = l.customer_id
+        LEFT JOIN (
+          SELECT rl.customer_id, COUNT(lr.id) AS rollover_count
+          FROM loan_rollovers lr
+          JOIN loans rl ON rl.id = lr.original_loan_id
+          GROUP BY rl.customer_id
+        ) rc ON rc.customer_id = l.customer_id
+        WHERE l.status IN ('active', 'overdue')
+          AND (
+            l.status = 'overdue'
+            OR COALESCE(rc.rollover_count, 0) >= 2
+            OR c.risk_level IN ('high', 'blacklist')
+            OR l.due_date::date <= CURRENT_DATE + INTERVAL '7 days'
+          )
+        ORDER BY
+          CASE l.status WHEN 'overdue' THEN 0 ELSE 1 END,
+          GREATEST(0, (CURRENT_DATE - l.due_date::date)) DESC,
+          COALESCE(rc.rollover_count, 0) DESC,
+          (l.principal_amount - l.paid_principal) DESC
+        LIMIT 20
+      `),
+      db.raw(`
+        SELECT
+          l.customer_id,
+          c.first_name || ' ' || c.last_name AS customer_name,
+          COUNT(DISTINCT l.id)::int AS total_loan_count,
+          COALESCE(SUM(CASE WHEN l.status IN ('active','overdue') THEN l.principal_amount - l.paid_principal ELSE 0 END), 0)::numeric AS outstanding_principal,
+          COALESCE(SUM(l.paid_interest), 0)::numeric AS total_interest_paid,
+          to_char(MIN(l.issued_date), 'YYYY-MM-DD') AS first_loan_date,
+          CASE WHEN COUNT(CASE WHEN l.status = 'overdue' THEN 1 END) > 0 THEN 'overdue' ELSE 'active' END AS current_status
+        FROM loans l
+        JOIN customers c ON c.id = l.customer_id
+        WHERE l.status IN ('active', 'overdue')
+        GROUP BY l.customer_id, c.id, c.first_name, c.last_name
+        ORDER BY outstanding_principal DESC
+        LIMIT 10
+      `),
+    ])
+
+    // ── Computed values ────────────────────────────────────────────────────────
+    const cashOnHand = Number(cashRow?.balance_after ?? 0)
+    const cashYesterday = Number(yesterdayCashRow?.balance_after ?? 0)
+    const outstandingPrincipal = Number(portfolioRow?.outstanding_principal ?? 0)
+    const activeLoansCount = Number(portfolioRow?.active_count ?? 0)
+    const profitThisMonth = Number(profitMonthRow?.total ?? 0)
+    const profitLastMonth = Number(profitLastMonthRow?.total ?? 0)
+    const overdueCount = Number(overdueRow?.count ?? 0)
+    const overdueAmount = Number(overdueRow?.amount ?? 0)
+    const badDebtCount = Number(badDebtRow?.count ?? 0)
+    const badDebtAmount = Number(badDebtRow?.amount ?? 0)
+    const totalAsset = cashOnHand + outstandingPrincipal
+
+    const repeatData = (repeatRaw as any).rows?.[0] ?? {}
+    const totalCustomers = Number(repeatData.total_customers ?? 0)
+    const repeatCustomers = Number(repeatData.repeat_customers ?? 0)
+    const repeatCustomerRate = totalCustomers > 0 ? (repeatCustomers / totalCustomers) * 100 : 0
+
+    // 7-day cash forecast
+    const forecastMap: Record<string, number> = {}
+    for (const r of forecastInstallmentRows) {
+      const d = String(r.due_date)
+      forecastMap[d] = (forecastMap[d] ?? 0) + Number(r.amount)
+    }
+    for (const r of forecastSingleRows) {
+      const d = String(r.due_date)
+      forecastMap[d] = (forecastMap[d] ?? 0) + Number(r.amount)
+    }
+    const cashForecast = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(now.getTime() + i * 86400000).toISOString().split('T')[0]
+      return { date: d, amount: forecastMap[d] ?? 0 }
+    })
+    const forecast7Days = cashForecast.reduce((s, r) => s + r.amount, 0)
+
+    // KPI derivations
+    const nplBase = outstandingPrincipal + badDebtAmount
+    const nplRate = nplBase > 0 ? badDebtAmount / nplBase : 0
+    const roi = outstandingPrincipal > 0 ? (profitThisMonth / outstandingPrincipal) * 100 : 0
+    const cashUtilization = totalAsset > 0 ? (outstandingPrincipal / totalAsset) * 100 : 0
+    const averageLoan = activeLoansCount > 0 ? outstandingPrincipal / activeLoansCount : 0
+
+    // Health score (0–100)
+    const nplScore = nplRate === 0 ? 30 : nplRate < 0.05 ? 20 : nplRate < 0.10 ? 10 : 0
+    const overdueScore = overdueCount === 0 ? 30 : overdueCount <= 5 ? 20 : overdueCount <= 10 ? 10 : 0
+    const activeScore = activeLoansCount > 0 ? 20 : 0
+    const badDebtScore = badDebtCount === 0 ? 20 : nplRate < 0.05 ? 10 : 0
+    const healthScore = nplScore + overdueScore + activeScore + badDebtScore
+
+    // Revenue trend (12 months)
+    const revenueTrendMap: Record<string, number> = {}
+    for (const r of revenueTrendRows) { revenueTrendMap[String(r.month)] = Number(r.interest) }
+    const revenueTrend = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      return { month: key, interest: revenueTrendMap[key] ?? 0 }
+    })
+
+    // Portfolio growth (12 months from snapshots)
+    const snapshotMap: Record<string, { outstanding: number; profit: number }> = {}
+    for (const r of portfolioGrowthRows) {
+      const raw = r.snapshot_month
+      const key = typeof raw === 'string' ? raw.slice(0, 7) : new Date(raw).toISOString().slice(0, 7)
+      snapshotMap[key] = {
+        outstanding: Number(r.outstanding_principal ?? 0),
+        profit: Number(r.interest_collected ?? 0),
+      }
+    }
+    let cumProfit = 0
+    const portfolioGrowth = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const snap = snapshotMap[key]
+      cumProfit += snap?.profit ?? 0
+      const outstanding = snap?.outstanding ?? (i === 11 ? outstandingPrincipal : 0)
+      return { month: key, outstanding, cumulativeProfit: cumProfit }
+    })
+
+    return {
+      kpi: {
+        cashOnHand, cashYesterday,
+        outstandingPrincipal, activeLoansCount,
+        profitThisMonth, profitLastMonth,
+        roi, nplRate, nplAmount: badDebtAmount,
+        overdueCount, overdueAmount,
+        badDebtCount, badDebtAmount,
+        totalCustomers, repeatCustomers, repeatCustomerRate,
+        forecast7Days, cashUtilization, totalAsset, averageLoan,
+        healthScore,
+        healthNplScore: nplScore,
+        healthOverdueScore: overdueScore,
+        healthActiveScore: activeScore,
+        healthBadDebtScore: badDebtScore,
+      },
+      cashForecast,
+      portfolioByType: portfolioByTypeRows.map((r: any) => ({
+        loanType: r.loan_type as string,
+        amount: Number(r.amount),
+        count: Number(r.count),
+      })),
+      revenueTrend,
+      portfolioGrowth,
+      topCustomers: ((topCustomersRaw as any).rows ?? []).map((r: any) => ({
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        loanCount: r.total_loan_count,
+        outstandingPrincipal: Number(r.outstanding_principal),
+        totalInterestPaid: Number(r.total_interest_paid),
+        customerSince: String(r.first_loan_date ?? '').split('T')[0],
+        status: r.current_status,
+      })),
+      riskMonitor: ((riskMonitorRaw as any).rows ?? []).map((r: any) => ({
+        loanId: r.loan_id,
+        loanNumber: r.loan_number,
+        customerId: r.customer_id,
+        customerName: r.customer_name,
+        outstandingAmount: Number(r.outstanding),
+        daysOverdue: Number(r.days_overdue ?? 0),
+        rolloverCount: Number(r.rollover_count ?? 0),
+        status: r.status,
+        riskLevel: r.risk_level,
+        dueDate: String(r.due_date ?? ''),
+      })),
+    }
+  },
 }

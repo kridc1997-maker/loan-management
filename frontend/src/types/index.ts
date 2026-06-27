@@ -262,3 +262,88 @@ export interface FilterState {
   page: number
   limit: number
 }
+
+// ─── Executive Dashboard ─────────────────────────────────────────────────────
+
+export interface ExecKpi {
+  cashOnHand: number
+  cashYesterday: number
+  outstandingPrincipal: number
+  activeLoansCount: number
+  profitThisMonth: number
+  profitLastMonth: number
+  roi: number
+  nplRate: number
+  nplAmount: number
+  overdueCount: number
+  overdueAmount: number
+  badDebtCount: number
+  badDebtAmount: number
+  totalCustomers: number
+  repeatCustomers: number
+  repeatCustomerRate: number
+  forecast7Days: number
+  cashUtilization: number
+  totalAsset: number
+  averageLoan: number
+  healthScore: number
+  healthNplScore: number
+  healthOverdueScore: number
+  healthActiveScore: number
+  healthBadDebtScore: number
+}
+
+export interface ExecForecastDay {
+  date: string
+  amount: number
+}
+
+export interface ExecPortfolioItem {
+  loanType: string
+  amount: number
+  count: number
+}
+
+export interface ExecRevenueTrend {
+  month: string
+  interest: number
+}
+
+export interface ExecPortfolioGrowth {
+  month: string
+  outstanding: number
+  cumulativeProfit: number
+}
+
+export interface ExecTopCustomer {
+  customerId: number
+  customerName: string
+  loanCount: number
+  outstandingPrincipal: number
+  totalInterestPaid: number
+  customerSince: string
+  status: string
+}
+
+export interface ExecRiskItem {
+  loanId: number
+  loanNumber: string
+  customerId: number
+  customerName: string
+  outstandingAmount: number
+  daysOverdue: number
+  rolloverCount: number
+  status: string
+  riskLevel: string
+  dueDate: string
+}
+
+export interface ExecutiveDashboardData {
+  kpi: ExecKpi
+  cashForecast: ExecForecastDay[]
+  portfolioByType: ExecPortfolioItem[]
+  revenueTrend: ExecRevenueTrend[]
+  portfolioGrowth: ExecPortfolioGrowth[]
+  topCustomers: ExecTopCustomer[]
+  riskMonitor: ExecRiskItem[]
+}

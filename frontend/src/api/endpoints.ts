@@ -97,3 +97,8 @@ export const settingsApi = {
   get: () => api.get('/settings'),
   update: (data: Record<string, string>) => api.put('/settings', data),
 }
+
+// ─── Executive Dashboard ──────────────────────────────────────────────────────
+export const executiveApi = {
+  dashboard: () => api.get('/executive/dashboard'),
+}

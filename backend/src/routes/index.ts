@@ -6,6 +6,7 @@ import { dashboardController } from '../controllers/dashboardController'
 import { badDebtController } from '../controllers/badDebtController'
 import { userController } from '../controllers/userController'
 import { authenticate, requireAdmin } from '../middleware/auth'
+import { dashboardRepo } from '../repositories/dashboardRepository'
 import db from '../db/connection'
 
 const router = Router()
@@ -21,6 +22,16 @@ router.get('/dashboard/cash-flow', authenticate, dashboardController.cashFlow)
 router.get('/dashboard/due-today', authenticate, dashboardController.dueToday)
 router.get('/dashboard/top-customers', authenticate, dashboardController.topCustomers)
 router.get('/dashboard/overdue', authenticate, dashboardController.overdueSummary)
+
+// ─── Executive Dashboard ──────────────────────────────────────────────────────
+router.get('/executive/dashboard', authenticate, async (_req, res, next) => {
+  try {
+    const data = await dashboardRepo.getExecutiveDashboard()
+    res.json({ success: true, data })
+  } catch (err) {
+    next(err)
+  }
+})
 
 // ─── Customers ────────────────────────────────────────────────────────────────
 router.get('/customers', authenticate, customerController.list)

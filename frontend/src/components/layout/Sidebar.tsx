@@ -1,12 +1,14 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FileText, CreditCard,
-  AlertTriangle, Skull, TrendingUp, BarChart2, Settings, ChevronRight, UserCog,
+  AlertTriangle, Skull, TrendingUp, BarChart2, Settings, ChevronRight, UserCog, Activity,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { divider: 'ผู้บริหาร' },
+  { to: '/executive', label: 'Executive Dashboard', icon: Activity },
   { divider: 'ลูกค้า' },
   { to: '/customers', label: 'รายชื่อลูกค้า', icon: Users },
   { divider: 'สินเชื่อ' },
