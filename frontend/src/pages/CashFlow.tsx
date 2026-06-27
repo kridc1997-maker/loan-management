@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { TrendingUp, TrendingDown, Minus, Wallet, PlusCircle, MinusCircle, Receipt, RefreshCw, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Wallet, PlusCircle, MinusCircle, Receipt, RefreshCw, X } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
@@ -70,11 +70,6 @@ function shiftDate(dateStr: string, days: number) {
   return d.toISOString().split('T')[0]
 }
 
-function formatThaiDate(iso: string) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' })
-}
 
 function formatShortDate(iso: string) {
   if (!iso) return ''
