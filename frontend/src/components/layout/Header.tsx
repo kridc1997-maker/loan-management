@@ -70,7 +70,6 @@ export default function Header() {
         {activeCount !== null && (
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 border border-green-100">
             <FileText size={13} className="text-green-500" />
-            <span className="text-xs text-green-400">สัญญา Active</span>
             <span className="text-xs font-bold text-green-700">{activeCount} สัญญา</span>
           </div>
         )}

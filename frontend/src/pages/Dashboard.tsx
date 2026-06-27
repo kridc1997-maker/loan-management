@@ -45,7 +45,7 @@ export default function Dashboard() {
   useEffect(() => {
     Promise.all([
       dashboardApi.summary(),
-      dashboardApi.cashFlow(30),
+      dashboardApi.cashFlow(14),
       dashboardApi.topCustomers(5),
       dashboardApi.dueToday(),
     ]).then(([s, cf, top, due]) => {
@@ -71,7 +71,7 @@ export default function Dashboard() {
   }
 
   const d = summary
-  const chartData = (cashFlow?.daily ?? []).slice(-14).map((day) => ({
+  const chartData = (cashFlow?.daily ?? []).map((day) => ({
     date: day.date.slice(5).replace('-', '/'),
     รับเข้า: day.in,
     จ่ายออก: day.out,
