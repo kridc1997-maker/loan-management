@@ -177,24 +177,49 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Insights */}
-      <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Insights</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {generateInsights(d).map((item, idx) => {
-            const cfg = {
-              good: { bg: 'bg-green-50 border-green-100', text: 'text-green-800', icon: <CheckCircle size={15} className="text-green-500 flex-shrink-0 mt-0.5" /> },
-              bad:  { bg: 'bg-red-50 border-red-100',     text: 'text-red-800',   icon: <XCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5" /> },
-              warn: { bg: 'bg-yellow-50 border-yellow-100', text: 'text-yellow-800', icon: <AlertTriangle size={15} className="text-yellow-500 flex-shrink-0 mt-0.5" /> },
-              info: { bg: 'bg-blue-50 border-blue-100',   text: 'text-blue-800',  icon: <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" /> },
-            }[item.type]
-            return (
-              <div key={idx} className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${cfg.bg}`}>
-                {cfg.icon}
-                <p className={`text-sm font-medium leading-snug ${cfg.text}`}>{item.text}</p>
-              </div>
-            )
-          })}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {generateInsights(d).map((item, idx) => {
+          const cfg = {
+            good: {
+              wrap: 'border-l-4 border-l-emerald-400',
+              bg: 'rgba(16,185,129,0.12)',
+              border: 'rgba(52,211,153,0.25)',
+              text: '#6ee7b7',
+              icon: <CheckCircle size={20} className="flex-shrink-0" style={{ color: '#34d399' }} />,
+            },
+            bad: {
+              wrap: 'border-l-4 border-l-red-400',
+              bg: 'rgba(239,68,68,0.12)',
+              border: 'rgba(252,165,165,0.25)',
+              text: '#fca5a5',
+              icon: <XCircle size={20} className="flex-shrink-0" style={{ color: '#f87171' }} />,
+            },
+            warn: {
+              wrap: 'border-l-4 border-l-yellow-400',
+              bg: 'rgba(234,179,8,0.12)',
+              border: 'rgba(253,224,71,0.25)',
+              text: '#fde047',
+              icon: <AlertTriangle size={20} className="flex-shrink-0" style={{ color: '#facc15' }} />,
+            },
+            info: {
+              wrap: 'border-l-4 border-l-blue-400',
+              bg: 'rgba(59,130,246,0.12)',
+              border: 'rgba(147,197,253,0.25)',
+              text: '#93c5fd',
+              icon: <Info size={20} className="flex-shrink-0" style={{ color: '#60a5fa' }} />,
+            },
+          }[item.type]
+          return (
+            <div
+              key={idx}
+              className={`flex items-center gap-3 px-5 py-4 rounded-xl ${cfg.wrap}`}
+              style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
+            >
+              {cfg.icon}
+              <p className="text-sm font-semibold leading-snug" style={{ color: cfg.text }}>{item.text}</p>
+            </div>
+          )
+        })}
       </div>
 
       {/* Charts + Top Customers */}
