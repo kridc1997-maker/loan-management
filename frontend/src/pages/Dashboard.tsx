@@ -45,7 +45,7 @@ export default function Dashboard() {
   useEffect(() => {
     Promise.all([
       dashboardApi.summary(),
-      dashboardApi.cashFlow(14),
+      dashboardApi.cashFlow(7),
       dashboardApi.topCustomers(5),
       dashboardApi.dueToday(),
     ]).then(([s, cf, top, due]) => {
@@ -158,7 +158,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">Cash Flow (14 วันล่าสุด)</h2>
+              <h2 className="text-sm font-semibold text-gray-900">Cash Flow (7 วันล่าสุด)</h2>
               <p className="text-xs text-gray-500 mt-0.5">รับเข้า vs จ่ายออก</p>
             </div>
             <div className="flex gap-4 text-xs">

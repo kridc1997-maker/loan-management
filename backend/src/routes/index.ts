@@ -304,7 +304,9 @@ router.put('/settings', authenticate, async (req, res, next) => {
 // ─── Cash Management ──────────────────────────────────────────────────────────
 router.get('/cash/daily', authenticate, async (req, res, next) => {
   try {
-    const date = (req.query.date as string) ?? new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]
+    const from = (req.query.from as string) ?? (req.query.date as string) ?? today
+    const to   = (req.query.to   as string) ?? from
     const rows = await db('cash_transactions as ct')
       .leftJoin('loans as l', 'l.id', 'ct.loan_id')
       .leftJoin('customers as c', 'c.id', 'l.customer_id')
@@ -317,6 +319,7 @@ router.get('/cash/daily', authenticate, async (req, res, next) => {
         'ct.amount',
         'ct.balance_after',
         'ct.description',
+        db.raw("to_char(ct.txn_date, 'YYYY-MM-DD') as txn_date"),
         'ct.created_at',
         'l.loan_number',
         'l.loan_type',
@@ -327,7 +330,8 @@ router.get('/cash/daily', authenticate, async (req, res, next) => {
         'p.fine_paid',
         'p.payment_method',
       )
-      .whereRaw('ct.txn_date::date = ?::date', [date])
+      .whereRaw('ct.txn_date::date >= ?::date', [from])
+      .whereRaw('ct.txn_date::date <= ?::date', [to])
       .orderBy('ct.id', 'desc')
     res.json({ success: true, data: rows })
   } catch (err) { next(err) }

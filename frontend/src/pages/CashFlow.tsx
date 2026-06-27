@@ -98,8 +98,9 @@ export default function CashFlow() {
   const [tableCashFlow, setTableCashFlow] = useState<CashFlowSummary | null>(null)
   const [tableLoading, setTableLoading] = useState(true)
 
-  // Daily transaction detail table
-  const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0])
+  // Daily transaction detail table (date range)
+  const [rangeFrom, setRangeFrom] = useState(new Date().toISOString().split('T')[0])
+  const [rangeTo,   setRangeTo]   = useState(new Date().toISOString().split('T')[0])
   const [dailyTxns, setDailyTxns] = useState<any[]>([])
   const [dailyLoading, setDailyLoading] = useState(false)
   const [dailyFilter, setDailyFilter] = useState<string | null>(null)
@@ -139,8 +140,8 @@ export default function CashFlow() {
 
   const loadDailyTxns = useCallback(() => {
     setDailyLoading(true)
-    cashApi.daily(dailyDate).then((res) => setDailyTxns(res.data.data)).finally(() => setDailyLoading(false))
-  }, [dailyDate])
+    cashApi.daily(rangeFrom, rangeTo).then((res) => setDailyTxns(res.data.data)).finally(() => setDailyLoading(false))
+  }, [rangeFrom, rangeTo])
 
   useEffect(() => { loadBalance() }, [loadBalance])
   useEffect(() => { loadCashFlow() }, [loadCashFlow])
@@ -423,25 +424,38 @@ export default function CashFlow() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setDailyDate((d) => shiftDate(d, -1))}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
-              <ChevronLeft size={15} />
-            </button>
-            <input
-              type="date"
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={dailyDate}
-              onChange={(e) => setDailyDate(e.target.value)}
-            />
-            <button
-              onClick={() => setDailyDate((d) => shiftDate(d, 1))}
-              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-              disabled={dailyDate >= new Date().toISOString().split('T')[0]}>
-              <ChevronRight size={15} />
-            </button>
-            <span className="text-xs text-gray-400">{formatThaiDate(dailyDate)}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-400">จาก</span>
+              <input
+                type="date"
+                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={rangeFrom}
+                max={rangeTo}
+                onChange={(e) => setRangeFrom(e.target.value)}
+              />
+              <span className="text-xs text-gray-400">ถึง</span>
+              <input
+                type="date"
+                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={rangeTo}
+                min={rangeFrom}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setRangeTo(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              {[
+                { label: 'วันนี้',    onClick: () => { const t = new Date().toISOString().split('T')[0]; setRangeFrom(t); setRangeTo(t) } },
+                { label: '7 วัน',    onClick: () => { setRangeFrom(shiftDate(new Date().toISOString().split('T')[0], -6)); setRangeTo(new Date().toISOString().split('T')[0]) } },
+                { label: 'เดือนนี้', onClick: () => { const t = new Date().toISOString().split('T')[0]; setRangeFrom(t.slice(0,7)+'-01'); setRangeTo(t) } },
+              ].map((s) => (
+                <button key={s.label} onClick={s.onClick}
+                  className="px-2 py-1 rounded-lg text-xs text-gray-500 hover:bg-gray-100 transition-colors">
+                  {s.label}
+                </button>
+              ))}
+            </div>
             <button onClick={loadDailyTxns} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
               <RefreshCw size={13} />
             </button>
@@ -480,6 +494,7 @@ export default function CashFlow() {
                   <table className="w-full">
                     <thead className="bg-gray-50 border-b border-gray-100">
                       <tr>
+                        <th className="table-header">วันที่</th>
                         <th className="table-header">เลขที่</th>
                         <th className="table-header">ประเภท</th>
                         <th className="table-header">ลูกค้า / รายละเอียด</th>
@@ -492,6 +507,7 @@ export default function CashFlow() {
                     <tbody>
                   {filtered.map((t: any) => (
                     <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="table-cell text-xs text-gray-500 whitespace-nowrap">{t.txn_date ?? ''}</td>
                       <td className="table-cell text-xs text-gray-400 font-mono">{t.txn_number}</td>
                       <td className="table-cell">{dailyTxnBadge(t.txn_type)}</td>
                       <td className="table-cell">
