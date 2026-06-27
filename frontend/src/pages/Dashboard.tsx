@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Wallet, TrendingUp, PiggyBank, BadgeDollarSign,
   AlertTriangle, Users, XCircle, Phone, Landmark, Receipt,
+  CheckCircle, Info,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -13,6 +14,58 @@ import StatusBadge from '../components/ui/StatusBadge'
 import { formatCurrency, overdueBadgeClass, daysOverdue, isInstallmentBased } from '../utils/financial'
 import { dashboardApi, paymentApi } from '../api/endpoints'
 import type { DashboardSummary, CashFlowSummary, TopCustomer, DueTodayItem } from '../types'
+
+type InsightType = 'good' | 'bad' | 'warn' | 'info'
+interface Insight { text: string; type: InsightType }
+
+function generateInsights(d: DashboardSummary): Insight[] {
+  const items: Insight[] = []
+  const netExpense = d.capitalOutThisMonth + d.expenseThisMonth - d.capitalInThisMonth
+  const netProfit = d.profitThisMonth - netExpense
+
+  if (netExpense > 0) {
+    items.push({
+      text: netProfit >= 0
+        ? `กำไรสุทธิเดือนนี้ ${formatCurrency(netProfit)} หลังหักค่าใช้จ่าย`
+        : `ค่าใช้จ่ายเกินกำไร ${formatCurrency(Math.abs(netProfit))} เดือนนี้`,
+      type: netProfit >= 0 ? 'good' : 'bad',
+    })
+  }
+
+  if (d.overdueCount === 0) {
+    items.push({ text: 'ไม่มีลูกหนี้ค้างชำระในปัจจุบัน', type: 'good' })
+  } else if (d.overdueCount > 5) {
+    items.push({ text: `มีลูกหนี้ค้างชำระ ${d.overdueCount} ราย ยอด ${formatCurrency(d.overdueAmount)}`, type: 'bad' })
+  } else {
+    items.push({ text: `มีลูกหนี้ค้างชำระ ${d.overdueCount} ราย ควรติดตาม`, type: 'warn' })
+  }
+
+  if (d.badDebtCount === 0) {
+    items.push({ text: 'ไม่มีหนี้เสีย พอร์ตแข็งแรง', type: 'good' })
+  } else {
+    items.push({ text: `หนี้เสีย ${d.badDebtCount} ราย รวม ${formatCurrency(d.badDebtAmount)}`, type: 'bad' })
+  }
+
+  if (d.collectionRate >= 0.9) {
+    items.push({ text: `อัตราเก็บหนี้ดีเยี่ยม ${(d.collectionRate * 100).toFixed(0)}%`, type: 'good' })
+  } else if (d.collectionRate >= 0.7) {
+    items.push({ text: `อัตราเก็บหนี้ ${(d.collectionRate * 100).toFixed(0)}%`, type: 'info' })
+  } else if (d.collectionRate > 0) {
+    items.push({ text: `อัตราเก็บหนี้ต่ำ ${(d.collectionRate * 100).toFixed(0)}% ควรติดตาม`, type: 'warn' })
+  }
+
+  if (d.profitToday > 0) {
+    items.push({ text: `รับชำระวันนี้ ${formatCurrency(d.receivedToday)} กำไร ${formatCurrency(d.profitToday)}`, type: 'info' })
+  }
+
+  if (d.newLoansToday > 0) {
+    items.push({ text: `ปล่อยกู้ใหม่วันนี้ ${d.newLoansToday} สัญญา`, type: 'info' })
+  } else if (d.expectedProfit > 0) {
+    items.push({ text: `กำไรคาดการณ์ ${formatCurrency(d.expectedProfit)} ยังรอเก็บ`, type: 'info' })
+  }
+
+  return items.slice(0, 6)
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
@@ -151,6 +204,27 @@ export default function Dashboard() {
           icon={<XCircle size={18} className="text-red-500" />}
           iconBg="bg-red-50"
         />
+      </div>
+
+      {/* Quick Insights */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Insights</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {generateInsights(d).map((item, idx) => {
+            const cfg = {
+              good: { bg: 'bg-green-50 border-green-100', text: 'text-green-800', icon: <CheckCircle size={15} className="text-green-500 flex-shrink-0 mt-0.5" /> },
+              bad:  { bg: 'bg-red-50 border-red-100',     text: 'text-red-800',   icon: <XCircle size={15} className="text-red-500 flex-shrink-0 mt-0.5" /> },
+              warn: { bg: 'bg-yellow-50 border-yellow-100', text: 'text-yellow-800', icon: <AlertTriangle size={15} className="text-yellow-500 flex-shrink-0 mt-0.5" /> },
+              info: { bg: 'bg-blue-50 border-blue-100',   text: 'text-blue-800',  icon: <Info size={15} className="text-blue-500 flex-shrink-0 mt-0.5" /> },
+            }[item.type]
+            return (
+              <div key={idx} className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${cfg.bg}`}>
+                {cfg.icon}
+                <p className={`text-sm font-medium leading-snug ${cfg.text}`}>{item.text}</p>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Charts + Top Customers */}
