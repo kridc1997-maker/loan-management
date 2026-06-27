@@ -122,6 +122,7 @@ export const mockDashboard: DashboardSummary = {
   expenseThisMonth: 0,
   capitalOutThisMonth: 0,
   capitalInThisMonth: 0,
+  forecast7Days: 0,
 }
 
 export const mockCashFlow: CashFlowSummary = {
