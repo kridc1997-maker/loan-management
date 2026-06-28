@@ -333,7 +333,12 @@ export const dashboardRepo = {
           c.first_name || ' ' || c.last_name AS customer_name,
           COUNT(DISTINCT l.id)::int AS total_loan_count,
           COALESCE(SUM(CASE WHEN l.status IN ('active','overdue') THEN l.principal_amount - l.paid_principal ELSE 0 END), 0)::numeric AS outstanding_principal,
-          COALESCE(SUM(l.paid_interest), 0)::numeric AS total_interest_paid,
+          COALESCE((
+            SELECT SUM(p2.interest_paid + COALESCE(p2.fine_paid, 0))
+            FROM payments p2
+            JOIN loans l2 ON l2.id = p2.loan_id
+            WHERE l2.customer_id = l.customer_id
+          ), 0)::numeric AS total_interest_paid,
           to_char(MIN(l.issued_date), 'YYYY-MM-DD') AS first_loan_date,
           CASE WHEN COUNT(CASE WHEN l.status = 'overdue' THEN 1 END) > 0 THEN 'overdue' ELSE 'active' END AS current_status
         FROM loans l
