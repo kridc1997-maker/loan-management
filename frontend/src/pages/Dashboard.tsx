@@ -21,18 +21,20 @@ interface Insight { text: string; type: InsightType }
 function generateInsights(d: DashboardSummary): Insight[] {
   const netExpense = d.capitalOutThisMonth + d.expenseThisMonth - d.capitalInThisMonth
   const netProfit = d.profitThisMonth - netExpense
+  const totalAsset = d.cashOnHand + d.outstandingPrincipal
+  const utilization = totalAsset > 0 ? (d.outstandingPrincipal / totalAsset) * 100 : 0
   return [
     {
       text: `กำไรสุทธิเดือนนี้ ${formatCurrency(netProfit)} หลังหักค่าใช้จ่าย`,
-      type: netProfit >= 0 ? 'good' : 'bad',
+      type: 'info',
     },
     {
-      text: `รับชำระวันนี้ ${formatCurrency(d.receivedToday)} กำไร ${formatCurrency(d.profitToday)}`,
-      type: d.profitToday > 0 ? 'info' : 'warn',
+      text: `พอร์ตยังแข็งแรง สัดส่วนสินเชื่อ ${utilization.toFixed(1)}%`,
+      type: 'info',
     },
     {
       text: `คาดรับชำระใน 7 วันข้างหน้า ${formatCurrency(d.forecast7Days)}`,
-      type: d.forecast7Days > 0 ? 'info' : 'warn',
+      type: 'info',
     },
   ]
 }
