@@ -218,6 +218,15 @@ export default function ExecutiveDashboard() {
 
   const { kpi, cashForecast, portfolioByType, revenueTrend, portfolioGrowth, topCustomers, riskMonitor } = data
   const insights = generateInsights(kpi)
+
+  // cumulativeProfit from monthly_snapshots is always 0 (table unpopulated).
+  // Recompute from revenueTrend which correctly reads from payments table.
+  const revTrendMap = Object.fromEntries(revenueTrend.map((r) => [r.month, r.interest]))
+  let cumProfit = 0
+  const portfolioGrowthFixed = portfolioGrowth.map((g) => {
+    cumProfit += revTrendMap[g.month] ?? 0
+    return { ...g, cumulativeProfit: cumProfit }
+  })
   const cashChange = kpi.cashOnHand - kpi.cashYesterday
   const profitChangePct = kpi.profitLastMonth > 0
     ? (kpi.profitThisMonth - kpi.profitLastMonth) / kpi.profitLastMonth * 100
@@ -679,7 +688,7 @@ export default function ExecutiveDashboard() {
             <Activity size={15} className="text-gray-400" />
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={portfolioGrowth}>
+            <LineChart data={portfolioGrowthFixed}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis
                 dataKey="month"
