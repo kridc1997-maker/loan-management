@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CreditCard, RefreshCw, Pencil } from 'lucide-react'
+import { ArrowLeft, CreditCard, RefreshCw, Pencil, Skull, AlertTriangle } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
 import { formatCurrency, formatDate, isInstallmentBased, daysOverdue } from '../../utils/financial'
 import { loanApi, paymentApi } from '../../api/endpoints'
@@ -37,6 +37,8 @@ export default function LoanDetail() {
   const [adjusting, setAdjusting] = useState(false)
 
   const [closingLoan, setClosingLoan] = useState(false)
+  const [showBadDebtConfirm, setShowBadDebtConfirm] = useState(false)
+  const [markingBadDebt, setMarkingBadDebt] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -48,6 +50,20 @@ export default function LoanDetail() {
       setPayments(pRes.data.data ?? [])
     }).finally(() => setLoading(false))
   }, [id])
+
+  const handleMarkBadDebt = () => {
+    if (!loan || markingBadDebt) return
+    setMarkingBadDebt(true)
+    loanApi.markBadDebt(loan.id, 'ติดต่อไม่ได้').then(() => {
+      addToast('success', `บันทึกหนี้เสีย ${loan.loanNumber} เรียบร้อยแล้ว`)
+      navigate('/bad-debt')
+    }).catch((err) => {
+      addToast('error', err?.response?.data?.error?.message ?? 'เกิดข้อผิดพลาด')
+    }).finally(() => {
+      setMarkingBadDebt(false)
+      setShowBadDebtConfirm(false)
+    })
+  }
 
   const handleMarkComplete = () => {
     if (!loan || closingLoan) return
@@ -161,6 +177,14 @@ export default function LoanDetail() {
           )}
           {['active', 'overdue'].includes(loan.status) && (
             <button
+              onClick={() => setShowBadDebtConfirm(true)}
+              className="btn-secondary w-fit text-red-600 border-red-300 hover:bg-red-50"
+            >
+              <Skull size={14} /> ตีเป็นหนี้เสีย
+            </button>
+          )}
+          {['active', 'overdue'].includes(loan.status) && (
+            <button
               onClick={() => navigate('/payments', { state: { loanId: loan.id } })}
               className="btn-primary"
             >
@@ -235,6 +259,58 @@ export default function LoanDetail() {
                 className="flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
               >
                 {adjusting ? 'กำลังบันทึก...' : 'ยืนยัน'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bad Debt confirm modal */}
+      {showBadDebtConfirm && loan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">ยืนยันตีเป็นหนี้เสีย</h3>
+                <p className="text-xs text-gray-500">{loan.loanNumber} · {loan.customerName}</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 rounded-xl p-3 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">เงินต้นคงค้าง</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(Number(loan.principalAmount) - Number(loan.paidPrincipal))}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">ดอกเบี้ยคงค้าง</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(Number(loan.interestAmount) - Number(loan.paidInterest))}</span>
+              </div>
+              <div className="flex justify-between border-t border-red-100 pt-1 mt-1">
+                <span className="text-gray-700 font-medium">เหตุผล</span>
+                <span className="font-semibold text-red-600">ติดต่อไม่ได้</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 text-center">การดำเนินการนี้ไม่สามารถย้อนกลับได้ สัญญาจะถูกย้ายไปอยู่ในหมวดหนี้เสีย</p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBadDebtConfirm(false)}
+                disabled={markingBadDebt}
+                className="btn-secondary flex-1 justify-center"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleMarkBadDebt}
+                disabled={markingBadDebt}
+                className="flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+              >
+                <Skull size={14} />
+                {markingBadDebt ? 'กำลังบันทึก...' : 'ยืนยันตีหนี้เสีย'}
               </button>
             </div>
           </div>
