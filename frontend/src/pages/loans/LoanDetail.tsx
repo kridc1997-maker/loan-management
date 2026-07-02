@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CreditCard, RefreshCw, Pencil, Skull, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, CreditCard, RefreshCw, Pencil, Skull, AlertTriangle, Wallet } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
 import { formatCurrency, formatDate, isInstallmentBased, daysOverdue } from '../../utils/financial'
 import { loanApi, paymentApi } from '../../api/endpoints'
@@ -13,6 +13,7 @@ const PAYMENT_TYPE_LABEL: Record<string, string> = {
   full: 'ชำระทั้งหมด',
   rollover: 'ต่อดอก',
   bad_debt_recover: 'ชำระหนี้เสีย',
+  balance_reset: 'รียอด',
 }
 
 const LOAN_TYPE_LABEL: Record<string, { label: string; cls: string }> = {
@@ -40,6 +41,10 @@ export default function LoanDetail() {
   const [showBadDebtConfirm, setShowBadDebtConfirm] = useState(false)
   const [markingBadDebt, setMarkingBadDebt] = useState(false)
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [deductFirstInstallment, setDeductFirstInstallment] = useState(true)
+  const [resetting, setResetting] = useState(false)
+
   useEffect(() => {
     if (!id) return
     Promise.all([
@@ -63,6 +68,21 @@ export default function LoanDetail() {
       setMarkingBadDebt(false)
       setShowBadDebtConfirm(false)
     })
+  }
+
+  const handleResetBalance = () => {
+    if (!loan || resetting || !id) return
+    setResetting(true)
+    loanApi.resetBalance(loan.id, { deductFirstInstallment }).then((res) => {
+      setLoan(res.data.data)
+      return paymentApi.list({ loanId: id, limit: 200 })
+    }).then((pRes) => {
+      setPayments(pRes.data.data ?? [])
+      addToast('success', `รียอด ${loan.loanNumber} เรียบร้อยแล้ว`)
+      setShowResetConfirm(false)
+    }).catch((err) => {
+      addToast('error', err?.response?.data?.error?.message ?? 'เกิดข้อผิดพลาด')
+    }).finally(() => setResetting(false))
   }
 
   const handleMarkComplete = () => {
@@ -147,6 +167,14 @@ export default function LoanDetail() {
     ]
   })()
 
+  // "รียอด" (balance reset) — daily loans only, once at least half the installments are paid
+  const canReset = loan.loanType === 'daily'
+    && ['active', 'overdue'].includes(loan.status)
+    && loan.paidInstallments >= loan.totalInstallments / 2
+  const resetRemaining = Math.max(0, Number(loan.totalAmount) - (loan.installmentAmount ?? 0) * loan.paidInstallments)
+  const resetCashBackRaw = Number(loan.principalAmount) - resetRemaining
+  const resetCashBack = deductFirstInstallment ? resetCashBackRaw - (loan.installmentAmount ?? 0) : resetCashBackRaw
+
   return (
     <div className="max-w-3xl space-y-5">
       <div className="flex items-center justify-between">
@@ -173,6 +201,14 @@ export default function LoanDetail() {
               className="btn-secondary w-fit text-green-700 border-green-300 hover:bg-green-50 disabled:opacity-50"
             >
               <RefreshCw size={14} className={closingLoan ? 'animate-spin' : ''} /> ปิดสัญญา
+            </button>
+          )}
+          {canReset && (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="btn-secondary w-fit text-orange-600 border-orange-300 hover:bg-orange-50"
+            >
+              <Wallet size={14} /> รียอด
             </button>
           )}
           {['active', 'overdue'].includes(loan.status) && (
@@ -317,6 +353,71 @@ export default function LoanDetail() {
         </div>
       )}
 
+      {/* Reset balance ("รียอด") confirm modal */}
+      {showResetConfirm && loan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Wallet size={18} className="text-orange-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">ยืนยันการรียอด</h3>
+                <p className="text-xs text-gray-500">{loan.loanNumber} · {loan.customerName}</p>
+              </div>
+            </div>
+
+            <div className="bg-orange-50 rounded-xl p-3 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">เงินต้น</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(loan.principalAmount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">ยอดคงเหลือ</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(resetRemaining)}</span>
+              </div>
+              <div className="flex justify-between border-t border-orange-100 pt-1 mt-1">
+                <span className="text-gray-700 font-medium">ยอดที่ลูกค้าจะได้รับ</span>
+                <span className="font-bold text-orange-600">{formatCurrency(Math.max(0, resetCashBack))}</span>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={deductFirstInstallment}
+                onChange={(e) => setDeductFirstInstallment(e.target.checked)}
+                className="rounded"
+              />
+              หักงวดแรก ({formatCurrency(loan.installmentAmount ?? 0)}) ก่อนโอนให้ลูกค้า
+            </label>
+
+            <p className="text-xs text-gray-400 text-center">
+              สัญญาจะเริ่มนับรอบใหม่ทั้งหมดตั้งแต่วันนี้ ({loan.totalInstallments} งวด)
+              {deductFirstInstallment ? ' โดยถือว่างวดที่ 1 ชำระแล้ว' : ''}
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resetting}
+                className="btn-secondary flex-1 justify-center"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleResetBalance}
+                disabled={resetting || resetCashBack <= 0}
+                className="flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50"
+              >
+                <Wallet size={14} />
+                {resetting ? 'กำลังบันทึก...' : 'ยืนยันรียอด'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Loan summary card */}
       <div className="card space-y-4">
         <div className="flex items-start justify-between gap-3">
@@ -405,13 +506,16 @@ export default function LoanDetail() {
           <div className="divide-y divide-gray-50">
             {payments.map((p: any) => {
               const isRollover = p.payment_type === 'rollover'
+              const isReset = p.payment_type === 'balance_reset'
               return (
                 <div key={p.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isRollover ? 'bg-indigo-100' : 'bg-green-100'}`}>
-                      {isRollover
-                        ? <RefreshCw size={13} className="text-indigo-600" />
-                        : <CreditCard size={13} className="text-green-600" />}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isReset ? 'bg-orange-100' : isRollover ? 'bg-indigo-100' : 'bg-green-100'}`}>
+                      {isReset
+                        ? <Wallet size={13} className="text-orange-600" />
+                        : isRollover
+                          ? <RefreshCw size={13} className="text-indigo-600" />
+                          : <CreditCard size={13} className="text-green-600" />}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">
@@ -426,13 +530,17 @@ export default function LoanDetail() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">{formatCurrency(Number(p.amount))}</p>
-                    <p className="text-xs text-gray-400">
-                      ต้น {formatCurrency(Number(p.principal_paid))} · ดอก {formatCurrency(Number(p.interest_paid))}
-                      {Number(p.fine_paid) > 0 && (
-                        <span className="text-amber-600"> · ค่าปรับ {formatCurrency(Number(p.fine_paid))}</span>
-                      )}
+                    <p className={`text-sm font-bold ${isReset ? 'text-orange-600' : 'text-gray-900'}`}>
+                      {isReset ? '-' : ''}{formatCurrency(Number(p.amount))}
                     </p>
+                    {!isReset && (
+                      <p className="text-xs text-gray-400">
+                        ต้น {formatCurrency(Number(p.principal_paid))} · ดอก {formatCurrency(Number(p.interest_paid))}
+                        {Number(p.fine_paid) > 0 && (
+                          <span className="text-amber-600"> · ค่าปรับ {formatCurrency(Number(p.fine_paid))}</span>
+                        )}
+                      </p>
+                    )}
                   </div>
                 </div>
               )

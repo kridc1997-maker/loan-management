@@ -4,7 +4,7 @@ export type RiskLevel = 'low' | 'normal' | 'high' | 'blacklist'
 export type LoanType = 'single' | 'installment' | 'flexible' | 'daily'
 export type LoanStatus = 'active' | 'completed' | 'overdue' | 'bad_debt' | 'written_off'
 export type InstallmentStatus = 'pending' | 'paid' | 'partial' | 'overdue' | 'skipped'
-export type PaymentType = 'normal' | 'partial' | 'rollover' | 'full' | 'bad_debt_recover'
+export type PaymentType = 'normal' | 'partial' | 'rollover' | 'full' | 'bad_debt_recover' | 'balance_reset'
 export type PaymentMethod = 'cash' | 'transfer' | 'other'
 export type CashTxnType = 'loan_out' | 'interest_in' | 'principal_in' | 'expense' | 'capital_in' | 'capital_out'
 

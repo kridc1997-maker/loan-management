@@ -36,6 +36,11 @@ const adjustAmountsSchema = z.object({
   totalAmount: z.number().positive('ยอดรวมต้องมากกว่า 0'),
 })
 
+const resetBalanceSchema = z.object({
+  deductFirstInstallment: z.boolean().default(false),
+  note: z.string().optional(),
+})
+
 const rolloverSchema = z.object({
   interestCollected: z.number().positive(),
   newDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -156,6 +161,16 @@ export const loanController = {
       const { reason } = req.body
       const result = await loanService.markAsBadDebt(Number(req.params.id), reason ?? '', req.user?.userId)
       res.status(201).json({ success: true, data: result })
+    } catch (err) {
+      next(err)
+    }
+  },
+
+  async resetBalance(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const body = resetBalanceSchema.parse(req.body)
+      const result = await loanService.resetBalance(Number(req.params.id), body.deductFirstInstallment, body.note, req.user?.userId)
+      res.status(201).json({ success: true, data: camelize(result) })
     } catch (err) {
       next(err)
     }

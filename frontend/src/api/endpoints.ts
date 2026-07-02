@@ -44,6 +44,8 @@ export const loanApi = {
   rollover: (id: number, data: { interestCollected: number; newDueDate: string; note?: string }) =>
     api.post(`/loans/${id}/rollover`, data),
   markBadDebt: (id: number, reason: string) => api.post(`/loans/${id}/mark-bad-debt`, { reason }),
+  resetBalance: (id: number, data: { deductFirstInstallment: boolean; note?: string }) =>
+    api.post(`/loans/${id}/reset-balance`, data),
   markComplete: (id: number) => api.post(`/loans/${id}/mark-complete`),
   convertToFlexible: (id: number) => api.post(`/loans/${id}/convert-to-flexible`),
   updateDueDate: (id: number, newDueDate: string) => api.put(`/loans/${id}/due-date`, { newDueDate }),

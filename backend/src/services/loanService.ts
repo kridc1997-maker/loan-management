@@ -470,6 +470,102 @@ export const loanService = {
     return loanRepo.findById(loanId)
   },
 
+  async resetBalance(loanId: number, deductFirstInstallment: boolean, note: string | undefined, createdBy?: number) {
+    const loan = await loanRepo.findById(loanId)
+    if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
+    if (loan.loan_type !== 'daily') throw new AppError(400, 'ใช้ได้เฉพาะสินเชื่อรายวันเท่านั้น')
+    if (!['active', 'overdue'].includes(loan.status)) throw new AppError(400, 'ไม่สามารถรียอดสัญญาที่ปิดแล้วได้')
+    if (Number(loan.paid_installments) < Number(loan.total_installments) / 2) {
+      throw new AppError(400, 'ต้องชำระอย่างน้อยครึ่งหนึ่งของจำนวนงวดก่อนจึงจะรียอดได้')
+    }
+
+    const installmentAmount = Number(loan.installment_amount)
+    const remaining = Math.max(0, Number(loan.total_amount) - installmentAmount * Number(loan.paid_installments))
+    let cashBack = Number(loan.principal_amount) - remaining
+    if (deductFirstInstallment) cashBack -= installmentAmount
+    if (cashBack <= 0) throw new AppError(400, 'ยอดที่ลูกค้าจะได้รับต้องมากกว่า 0')
+
+    await db.transaction(async (trx) => {
+      const today = todayStr()
+      const totalInstallments = Number(loan.total_installments)
+      const newDueDate = addDays(today, totalInstallments - 1)
+
+      // Regenerate the installment schedule from scratch (first time this codebase deletes loan_installments —
+      // existing payments keep their row via installment_id ON DELETE SET NULL, so payment history is unaffected)
+      await trx('loan_installments').where({ loan_id: loanId }).del()
+      const scheduleStart = addDays(today, -1)
+      const schedule = buildInstallmentSchedule(scheduleStart, Number(loan.total_amount), totalInstallments, totalInstallments, Number(loan.principal_amount))
+      await trx('loan_installments').insert(schedule.map((s) => ({ ...s, loan_id: loanId })))
+
+      let newPaidPrincipal = 0
+      let newPaidInterest = 0
+      let newPaidInstallments = 0
+      if (deductFirstInstallment) {
+        const first = schedule[0]
+        await trx('loan_installments')
+          .where({ loan_id: loanId, installment_no: 1 })
+          .update({ status: 'paid', paid_amount: first.amount_due, paid_date: today, updated_at: new Date() })
+        newPaidPrincipal = first.principal_portion
+        newPaidInterest = first.interest_portion
+        newPaidInstallments = 1
+      }
+
+      await trx('loans').where({ id: loanId }).update({
+        issued_date: today,
+        due_date: newDueDate,
+        paid_principal: newPaidPrincipal,
+        paid_interest: newPaidInterest,
+        paid_installments: newPaidInstallments,
+        status: 'active',
+        closed_date: null,
+        updated_at: new Date(),
+      })
+
+      const paymentNumber = await generatePaymentNumber()
+      const [payment] = await trx('payments').insert({
+        payment_number: paymentNumber,
+        loan_id: loanId,
+        loan_type: 'daily',
+        amount: cashBack,
+        principal_paid: 0,
+        interest_paid: 0,
+        over_payment: 0,
+        payment_date: today,
+        payment_type: 'balance_reset',
+        payment_method: 'cash',
+        note: note ?? (deductFirstInstallment ? 'รียอด (หักงวดแรก)' : 'รียอด'),
+        created_by: createdBy,
+      }).returning('*')
+
+      const currentBalance = await getCurrentBalance(trx)
+      const txnNumber = await generateTxnNumber()
+      await trx('cash_transactions').insert({
+        txn_number: txnNumber,
+        txn_type: 'loan_out',
+        direction: 'out',
+        amount: cashBack,
+        balance_after: currentBalance - cashBack,
+        loan_id: loanId,
+        payment_id: payment.id,
+        description: `รียอด ${loan.loan_number}`,
+        txn_date: today,
+        created_by: createdBy,
+      })
+
+      await trx('audit_logs').insert({
+        user_id: createdBy,
+        action: 'RESET_BALANCE',
+        entity_type: 'loan',
+        entity_id: loanId,
+        old_data: JSON.stringify({ issued_date: loan.issued_date, due_date: loan.due_date, paid_principal: loan.paid_principal, paid_interest: loan.paid_interest, paid_installments: loan.paid_installments }),
+        new_data: JSON.stringify({ issued_date: today, due_date: newDueDate, paid_principal: newPaidPrincipal, paid_interest: newPaidInterest, paid_installments: newPaidInstallments, cash_back: cashBack, deduct_first_installment: deductFirstInstallment }),
+      })
+    })
+
+    // Re-read after commit so the reset loan_type/installments are visible (same pattern as convertToFlexible)
+    return loanRepo.findById(loanId)
+  },
+
   async markAsBadDebt(loanId: number, reason: string, createdBy?: number) {
     const loan = await loanRepo.findById(loanId)
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
