@@ -366,7 +366,7 @@ export const dashboardRepo = {
     const expenseThisMonth = Number(expenseMonthRow?.expense_total ?? 0)
     const capitalOutThisMonth = Number(expenseMonthRow?.capital_out_total ?? 0)
     const capitalInThisMonth = Number(expenseMonthRow?.capital_in_total ?? 0)
-    const netExpense = expenseThisMonth + capitalOutThisMonth - capitalInThisMonth
+    const netExpense = expenseThisMonth + capitalOutThisMonth
 
     const repeatData = (repeatRaw as any).rows?.[0] ?? {}
     const totalCustomers = Number(repeatData.total_customers ?? 0)
