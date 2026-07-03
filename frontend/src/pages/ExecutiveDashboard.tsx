@@ -250,7 +250,7 @@ export default function ExecutiveDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Executive Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-0.5">ภาพรวมธุรกิจสำหรับผู้บริหาร — เปิดดู 30 วินาทีเห็นทุกอย่าง</p>
+          <p className="text-sm text-gray-500 mt-0.5">ภาพรวมธุรกิจสำหรับผู้บริหาร</p>
         </div>
         <button onClick={load} className="btn-secondary text-xs gap-1.5">
           <RefreshCw size={13} />
