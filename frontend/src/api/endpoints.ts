@@ -94,6 +94,11 @@ export const userApi = {
   remove: (id: number) => api.delete(`/users/${id}`),
 }
 
+// ─── Audit Logs ───────────────────────────────────────────────────────────────
+export const auditLogApi = {
+  list: (page = 1, limit = 50) => api.get('/audit-logs', { params: { page, limit } }),
+}
+
 // ─── Settings ─────────────────────────────────────────────────────────────────
 export const settingsApi = {
   get: () => api.get('/settings'),

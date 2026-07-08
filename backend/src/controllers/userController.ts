@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import db from '../db/connection'
 import { AppError } from '../middleware/errorHandler'
+import { logAudit } from '../utils/auditLog'
 import type { AuthRequest } from '../types'
 
 const createSchema = z.object({
@@ -60,6 +61,14 @@ export const userController = {
         .insert({ role_id: role.id, username: body.username, password_hash: hash, full_name: body.fullName, is_active: true, created_at: new Date(), updated_at: new Date() })
         .returning(['id', 'username', 'full_name', 'is_active', 'created_at'])
 
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'CREATE_USER',
+        entityType: 'user',
+        entityId: user.id,
+        newData: { username: body.username, fullName: body.fullName, role: body.role },
+      })
+
       res.status(201).json({ success: true, data: { ...camelize(user), role: body.role } })
     } catch (err) { next(err) }
   },
@@ -88,6 +97,16 @@ export const userController = {
 
       await db('users').where({ id }).update(updates)
       const updated = await db('users as u').select('u.*', 'r.name as role_name').join('roles as r', 'r.id', 'u.role_id').where('u.id', id).first()
+
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'UPDATE_USER',
+        entityType: 'user',
+        entityId: id,
+        oldData: { fullName: current.full_name, isActive: current.is_active },
+        newData: body,
+      })
+
       res.json({ success: true, data: camelize(updated) })
     } catch (err) { next(err) }
   },
@@ -103,6 +122,13 @@ export const userController = {
       const hash = await bcrypt.hash(newPassword, 10)
       await db('users').where({ id }).update({ password_hash: hash, updated_at: new Date() })
 
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'RESET_PASSWORD',
+        entityType: 'user',
+        entityId: id,
+      })
+
       res.json({ success: true, data: { message: 'เปลี่ยนรหัสผ่านเรียบร้อย' } })
     } catch (err) { next(err) }
   },
@@ -116,6 +142,15 @@ export const userController = {
       if (!user) throw new AppError(404, 'ไม่พบผู้ใช้งาน')
 
       await db('users').where({ id }).delete()
+
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'DELETE_USER',
+        entityType: 'user',
+        entityId: id,
+        oldData: { username: user.username, fullName: user.full_name },
+      })
+
       res.json({ success: true, data: { message: 'ลบผู้ใช้งานเรียบร้อย' } })
     } catch (err) { next(err) }
   },

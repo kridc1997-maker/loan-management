@@ -7,6 +7,7 @@ import { badDebtController } from '../controllers/badDebtController'
 import { userController } from '../controllers/userController'
 import { authenticate, requireAdmin } from '../middleware/auth'
 import { dashboardRepo } from '../repositories/dashboardRepository'
+import { logAudit } from '../utils/auditLog'
 import db from '../db/connection'
 
 const router = Router()
@@ -301,12 +302,26 @@ router.get('/settings', authenticate, requireAdmin, async (_req, res, next) => {
   }
 })
 
-router.put('/settings', authenticate, requireAdmin, async (req, res, next) => {
+router.put('/settings', authenticate, requireAdmin, async (req: any, res, next) => {
   try {
     const updates = req.body as Record<string, string>
+    const keys = Object.keys(updates)
+    const before = await db('settings').whereIn('key', keys)
+    const oldValues: Record<string, string> = {}
+    before.forEach((r) => { oldValues[r.key] = r.value })
+
     for (const [key, value] of Object.entries(updates)) {
       await db('settings').where({ key }).update({ value, updated_at: new Date() })
     }
+
+    await logAudit({
+      userId: req.user?.userId,
+      action: 'UPDATE_SETTINGS',
+      entityType: 'settings',
+      oldData: oldValues,
+      newData: updates,
+    })
+
     res.json({ success: true, data: { message: 'อัพเดทเรียบร้อย' } })
   } catch (err) {
     next(err)
@@ -389,6 +404,13 @@ router.post('/cash/set-balance', authenticate, requireAdmin, async (req: any, re
       created_at: new Date(),
     })
 
+    await logAudit({
+      userId: req.user?.userId,
+      action: 'CASH_SET_BALANCE',
+      entityType: 'cash',
+      newData: { targetBalance, diff, description },
+    })
+
     res.json({ success: true, data: { newBalance: targetBalance, diff } })
   } catch (err) { next(err) }
 })
@@ -427,8 +449,44 @@ router.post('/cash/adjust', authenticate, requireAdmin, async (req: any, res, ne
       })
       .returning('*')
 
+    await logAudit({
+      userId: req.user?.userId,
+      action: 'CASH_ADJUST',
+      entityType: 'cash',
+      entityId: row.id,
+      newData: { type, amount, description },
+    })
+
     res.json({ success: true, data: { ...row, newBalance } })
   } catch (err) { next(err) }
+})
+
+// ─── Audit Logs (Admin) ───────────────────────────────────────────────────────
+router.get('/audit-logs', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const page = Number(req.query.page ?? 1)
+    const limit = Number(req.query.limit ?? 50)
+    const [rows, totalRow] = await Promise.all([
+      db('audit_logs as a')
+        .leftJoin('users as u', 'u.id', 'a.user_id')
+        .select(
+          'a.id', 'a.action', 'a.entity_type', 'a.entity_id',
+          'a.old_data', 'a.new_data', 'a.created_at',
+          'u.full_name as user_full_name', 'u.username',
+        )
+        .orderBy('a.id', 'desc')
+        .limit(limit)
+        .offset((page - 1) * limit),
+      db('audit_logs').count('id as c').first(),
+    ])
+    res.json({
+      success: true,
+      data: rows,
+      meta: { total: Number((totalRow as any)?.c ?? 0), page, limit },
+    })
+  } catch (err) {
+    next(err)
+  }
 })
 
 // ─── Users (Admin) ────────────────────────────────────────────────────────────

@@ -586,6 +586,15 @@ export const loanService = {
         created_by: createdBy,
       }).returning('*')
 
+      await trx('audit_logs').insert({
+        user_id: createdBy,
+        action: 'MARK_BAD_DEBT',
+        entity_type: 'loan',
+        entity_id: loanId,
+        old_data: JSON.stringify({ status: loan.status }),
+        new_data: JSON.stringify({ status: 'bad_debt', reason }),
+      })
+
       return badDebt
     })
   },

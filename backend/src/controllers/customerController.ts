@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { customerRepo, getCreditLabel } from '../repositories/customerRepository'
 import { generateCustomerCode } from '../utils/helpers'
 import { AppError } from '../middleware/errorHandler'
+import { logAudit } from '../utils/auditLog'
 import type { AuthRequest } from '../types'
 
 const createSchema = z.object({
@@ -66,6 +67,15 @@ export const customerController = {
         risk_level: (body.riskLevel as any) ?? 'normal',
         created_by: req.user?.userId,
       })
+
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'CREATE_CUSTOMER',
+        entityType: 'customer',
+        entityId: row.id,
+        newData: camelizeCustomer(row),
+      })
+
       res.status(201).json({ success: true, data: camelizeCustomer(row) })
     } catch (err) {
       next(err)
@@ -76,6 +86,8 @@ export const customerController = {
     try {
       const id = Number(req.params.id)
       const body = createSchema.partial().parse(req.body)
+      const before = await customerRepo.findById(id)
+      if (!before) throw new AppError(404, 'ไม่พบลูกค้า')
       await customerRepo.update(id, {
         first_name: body.firstName,
         last_name: body.lastName,
@@ -89,6 +101,16 @@ export const customerController = {
       })
       const full = await customerRepo.findById(id)
       if (!full) throw new AppError(404, 'ไม่พบลูกค้า')
+
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'UPDATE_CUSTOMER',
+        entityType: 'customer',
+        entityId: id,
+        oldData: camelizeCustomer(before),
+        newData: camelizeCustomer(full),
+      })
+
       res.json({ success: true, data: camelizeCustomer(full) })
     } catch (err) {
       next(err)

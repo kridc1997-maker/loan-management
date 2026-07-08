@@ -1,6 +1,7 @@
 import type { Response, NextFunction } from 'express'
 import db from '../db/connection'
 import { AppError } from '../middleware/errorHandler'
+import { logAudit } from '../utils/auditLog'
 import type { AuthRequest } from '../types'
 
 export const badDebtController = {
@@ -40,6 +41,15 @@ export const badDebtController = {
 
       // Update loan status to written_off
       await db('loans').where({ id: row.loan_id }).update({ status: 'written_off', updated_at: new Date() })
+
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'RECOVER_BAD_DEBT',
+        entityType: 'bad_debt',
+        entityId: id,
+        oldData: { isRecovered: false },
+        newData: camelize(updated),
+      })
 
       res.json({ success: true, data: camelize(updated) })
     } catch (err) {

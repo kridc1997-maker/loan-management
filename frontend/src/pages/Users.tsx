@@ -1,7 +1,43 @@
-import { useState, useEffect } from 'react'
-import { UserPlus, Edit2, KeyRound, Trash2, Shield, User, CheckCircle, XCircle, Clock } from 'lucide-react'
-import { userApi } from '../api/endpoints'
+import { useState, useEffect, Fragment } from 'react'
+import { UserPlus, Edit2, KeyRound, Trash2, Shield, User, CheckCircle, XCircle, Clock, History, ChevronDown } from 'lucide-react'
+import { userApi, auditLogApi } from '../api/endpoints'
 import { useAuthStore } from '../stores/authStore'
+
+interface AuditLogItem {
+  id: number
+  action: string
+  entity_type: string
+  entity_id: number | null
+  old_data: Record<string, unknown> | null
+  new_data: Record<string, unknown> | null
+  created_at: string
+  user_full_name: string | null
+  username: string | null
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  CREATE_LOAN: 'สร้างสัญญาใหม่',
+  UPDATE_DUE_DATE: 'แก้ไขวันครบกำหนด',
+  CONVERT_TO_FLEXIBLE: 'แปลงเป็นสินเชื่อยืดหยุ่น',
+  ADJUST_LOAN_AMOUNT: 'แก้ไขยอดสัญญา',
+  MARK_COMPLETE: 'ปิดสัญญา',
+  RESET_BALANCE: 'รียอด',
+  MARK_BAD_DEBT: 'ตีเป็นหนี้เสีย',
+  RECOVER_BAD_DEBT: 'กู้คืนหนี้เสีย',
+  CREATE_USER: 'เพิ่มผู้ใช้งาน',
+  UPDATE_USER: 'แก้ไขผู้ใช้งาน',
+  RESET_PASSWORD: 'รีเซ็ตรหัสผ่าน',
+  DELETE_USER: 'ลบผู้ใช้งาน',
+  CREATE_CUSTOMER: 'เพิ่มลูกค้า',
+  UPDATE_CUSTOMER: 'แก้ไขข้อมูลลูกค้า',
+  CASH_SET_BALANCE: 'ตั้งยอดเงินสด',
+  CASH_ADJUST: 'ปรับยอดเงินสด',
+  UPDATE_SETTINGS: 'แก้ไขตั้งค่าระบบ',
+}
+
+const ENTITY_LABELS: Record<string, string> = {
+  loan: 'สัญญา', user: 'ผู้ใช้งาน', customer: 'ลูกค้า', cash: 'เงินสด', settings: 'ตั้งค่า', bad_debt: 'หนี้เสีย',
+}
 
 interface UserItem {
   id: number
@@ -39,6 +75,13 @@ export default function Users() {
   const [saving, setSaving]         = useState(false)
   const [err, setErr]               = useState('')
 
+  // Audit log
+  const [auditLogs, setAuditLogs]     = useState<AuditLogItem[]>([])
+  const [auditTotal, setAuditTotal]   = useState(0)
+  const [auditPage, setAuditPage]     = useState(1)
+  const [auditLoading, setAuditLoading] = useState(true)
+  const [expandedLogId, setExpandedLogId] = useState<number | null>(null)
+
   const load = async () => {
     try {
       setLoading(true)
@@ -48,7 +91,18 @@ export default function Users() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  const loadAuditLogs = async (page: number) => {
+    try {
+      setAuditLoading(true)
+      const res = await auditLogApi.list(page, 50)
+      setAuditLogs((prev) => (page === 1 ? res.data.data : [...prev, ...res.data.data]))
+      setAuditTotal(res.data.meta?.total ?? 0)
+      setAuditPage(page)
+    } catch { /* silent */ }
+    finally { setAuditLoading(false) }
+  }
+
+  useEffect(() => { load(); loadAuditLogs(1) }, [])
 
   const closeAll = () => {
     setCreateOpen(false); setEditTarget(null); setPwTarget(null); setDelTarget(null)
@@ -193,6 +247,86 @@ export default function Users() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Audit Log */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
+          <History size={16} className="text-gray-400" />
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">ประวัติการใช้งาน</h2>
+            <p className="text-xs text-gray-400">บันทึกการจัดการข้อมูลสำคัญในระบบ</p>
+          </div>
+        </div>
+        <table className="w-full">
+          <thead style={{ background: '#F8FAFC' }}>
+            <tr>
+              <th className="table-header">เวลา</th>
+              <th className="table-header">ผู้ใช้</th>
+              <th className="table-header">การกระทำ</th>
+              <th className="table-header">รายละเอียด</th>
+            </tr>
+          </thead>
+          <tbody>
+            {auditLoading && auditLogs.length === 0 ? (
+              <tr><td colSpan={4} className="py-12 text-center text-gray-400 text-sm">กำลังโหลด...</td></tr>
+            ) : auditLogs.length === 0 ? (
+              <tr><td colSpan={4} className="py-12 text-center text-gray-400 text-sm">ยังไม่มีประวัติ</td></tr>
+            ) : auditLogs.map((log) => (
+              <Fragment key={log.id}>
+                <tr
+                  className="border-t border-gray-50 hover:bg-gray-50/50 cursor-pointer"
+                  onClick={() => setExpandedLogId((id) => (id === log.id ? null : log.id))}
+                >
+                  <td className="table-cell text-xs text-gray-500">{formatDate(log.created_at)}</td>
+                  <td className="table-cell text-sm text-gray-900">{log.user_full_name ?? log.username ?? '—'}</td>
+                  <td className="table-cell">
+                    <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">
+                      {ACTION_LABELS[log.action] ?? log.action}
+                    </span>
+                  </td>
+                  <td className="table-cell text-xs text-gray-500">
+                    <div className="flex items-center gap-1.5">
+                      <ChevronDown size={13} className={`transition-transform ${expandedLogId === log.id ? 'rotate-180' : ''}`} />
+                      {ENTITY_LABELS[log.entity_type] ?? log.entity_type}{log.entity_id ? ` #${log.entity_id}` : ''}
+                    </div>
+                  </td>
+                </tr>
+                {expandedLogId === log.id && (
+                  <tr className="bg-gray-50/60">
+                    <td colSpan={4} className="px-5 py-3">
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <p className="font-semibold text-gray-500 mb-1">ก่อนแก้ไข</p>
+                          <pre className="whitespace-pre-wrap break-all text-gray-600">
+                            {log.old_data ? JSON.stringify(log.old_data, null, 2) : '—'}
+                          </pre>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-500 mb-1">หลังแก้ไข</p>
+                          <pre className="whitespace-pre-wrap break-all text-gray-600">
+                            {log.new_data ? JSON.stringify(log.new_data, null, 2) : '—'}
+                          </pre>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+        {auditLogs.length < auditTotal && (
+          <div className="px-5 py-3 border-t border-gray-50 text-center">
+            <button
+              onClick={() => loadAuditLogs(auditPage + 1)}
+              disabled={auditLoading}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+            >
+              {auditLoading ? 'กำลังโหลด...' : `โหลดเพิ่มเติม (เหลือ ${auditTotal - auditLogs.length} รายการ)`}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ─── Modal: Create ─────────────────────────────────────── */}
