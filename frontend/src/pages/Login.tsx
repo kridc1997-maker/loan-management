@@ -171,9 +171,7 @@ export default function Login() {
               <div>
                 <label className="block text-sm font-semibold text-gray-600 mb-1.5">ชื่อผู้ใช้</label>
                 <input
-                  className="w-full h-12 px-4 rounded-xl border border-gray-200 bg-gray-50/80 text-sm text-gray-900 placeholder-gray-400 outline-none transition-all"
-                  onFocus={(e) => { e.target.style.background='#fff'; e.target.style.boxShadow='0 0 0 3px rgba(21,101,192,0.15)'; e.target.style.borderColor='#1565C0' }}
-                  onBlur={(e)  => { e.target.style.background=''; e.target.style.boxShadow=''; e.target.style.borderColor='' }}
+                  className="input h-12 rounded-xl px-4"
                   placeholder="กรอกชื่อผู้ใช้"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -188,9 +186,7 @@ export default function Login() {
                 <div className="relative">
                   <input
                     type={showPw ? 'text' : 'password'}
-                    className="w-full h-12 px-4 pr-12 rounded-xl border border-gray-200 bg-gray-50/80 text-sm text-gray-900 placeholder-gray-400 outline-none transition-all"
-                    onFocus={(e) => { e.target.style.background='#fff'; e.target.style.boxShadow='0 0 0 3px rgba(21,101,192,0.15)'; e.target.style.borderColor='#1565C0' }}
-                    onBlur={(e)  => { e.target.style.background=''; e.target.style.boxShadow=''; e.target.style.borderColor='' }}
+                    className="input h-12 rounded-xl px-4 pr-12"
                     placeholder="กรอกรหัสผ่าน"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
