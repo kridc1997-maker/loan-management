@@ -232,6 +232,9 @@ export default function ExecutiveDashboard() {
   const profitChangePct = kpi.profitLastMonth > 0
     ? (kpi.profitThisMonth - kpi.profitLastMonth) / kpi.profitLastMonth * 100
     : 0
+  const profitWeekChangePct = kpi.profitLastWeek > 0
+    ? (kpi.profitThisWeek - kpi.profitLastWeek) / kpi.profitLastWeek * 100
+    : 0
 
   const pieData = portfolioByType.map((item) => ({
     name: LOAN_TYPE_LABELS[item.loanType] ?? item.loanType,
@@ -316,14 +319,31 @@ export default function ExecutiveDashboard() {
             iconBg="bg-green-50"
           />
 
-          {/* Card 6: กำไรสัปดาห์นี้ (จันทร์-อาทิตย์) */}
-          <KpiCard
-            title="กำไรสัปดาห์นี้"
-            value={formatCurrency(kpi.profitThisWeek)}
-            sub="จันทร์ - อาทิตย์"
-            icon={<TrendingUp size={18} className="text-teal-600" />}
-            iconBg="bg-teal-50"
-          />
+          {/* Card 6: กำไรสัปดาห์นี้ (custom — expense + net profit, mirrors กำไรเดือนนี้) */}
+          <div className="kpi-card">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">กำไรสัปดาห์นี้</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(kpi.profitThisWeek)}</p>
+                {kpi.netExpenseThisWeek !== 0 && (
+                  <p className="mt-0.5 text-xs font-medium text-red-500">
+                    −{formatCurrency(Math.abs(kpi.netExpenseThisWeek))} ค่าใช้จ่ายรวมสัปดาห์นี้
+                  </p>
+                )}
+                <p className="mt-0.5 text-xs text-gray-600">
+                  (กำไรสุทธิอาทิตย์นี้ {formatCurrency(kpi.profitThisWeek - kpi.netExpenseThisWeek + kpi.capitalInThisWeek)})
+                </p>
+              </div>
+              <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-teal-50">
+                <TrendingUp size={18} className="text-teal-600" />
+              </div>
+            </div>
+            {kpi.profitLastWeek > 0 && (
+              <p className={`mt-1 text-xs font-medium flex items-center gap-0.5 ${profitWeekChangePct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {profitWeekChangePct >= 0 ? '▲' : '▼'} {profitWeekChangePct >= 0 ? '+' : ''}{profitWeekChangePct.toFixed(1)}% vs อาทิตย์ก่อน
+              </p>
+            )}
+          </div>
 
           {/* Card 7: กำไรเดือนนี้ (custom — expense + net profit) */}
           <div className="kpi-card">
