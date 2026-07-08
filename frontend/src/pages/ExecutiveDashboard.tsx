@@ -4,6 +4,7 @@ import {
   Wallet, TrendingUp, PiggyBank, BadgeDollarSign, AlertTriangle,
   Users, XCircle, Target, Calendar, Activity, BarChart2, CreditCard,
   RefreshCw, CheckCircle, Info, Plus, Download, UserPlus, Shield,
+  Landmark, Skull,
 } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -259,7 +260,7 @@ export default function ExecutiveDashboard() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 1 — Executive Summary (10 KPI Cards)
+          SECTION 1 — Executive Summary (15 KPI Cards)
       ══════════════════════════════════════════════════════════════════════ */}
       <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Executive Summary</p>
@@ -288,7 +289,43 @@ export default function ExecutiveDashboard() {
             onClick={() => navigate('/loans')}
           />
 
-          {/* Card 3: กำไรเดือนนี้ (custom — expense + net profit) */}
+          {/* Card 3: ทุนรวม (Total Asset) */}
+          <KpiCard
+            title="ทุนรวม (Total Asset)"
+            value={formatCurrency(kpi.totalAsset)}
+            sub="เงินสด + เงินต้นคงค้าง"
+            icon={<Landmark size={18} className="text-orange-600" />}
+            iconBg="bg-orange-50"
+          />
+
+          {/* Card 4: ยอดรับคืนทั้งหมด */}
+          <KpiCard
+            title="ยอดรับคืนทั้งหมด"
+            value={formatCurrency(kpi.cashOnHand + kpi.outstandingPrincipal + kpi.expectedProfit)}
+            sub="เงินสด + เงินต้นคงค้าง + กำไรคาดการณ์"
+            icon={<PiggyBank size={18} className="text-indigo-600" />}
+            iconBg="bg-indigo-50"
+          />
+
+          {/* Card 5: กำไรวันนี้ */}
+          <KpiCard
+            title="กำไรวันนี้"
+            value={formatCurrency(kpi.profitToday)}
+            sub={`รับมาทั้งหมด ${formatCurrency(kpi.receivedToday)}`}
+            icon={<TrendingUp size={18} className="text-green-600" />}
+            iconBg="bg-green-50"
+          />
+
+          {/* Card 6: กำไรสัปดาห์นี้ (จันทร์-อาทิตย์) */}
+          <KpiCard
+            title="กำไรสัปดาห์นี้"
+            value={formatCurrency(kpi.profitThisWeek)}
+            sub="จันทร์ - อาทิตย์"
+            icon={<TrendingUp size={18} className="text-teal-600" />}
+            iconBg="bg-teal-50"
+          />
+
+          {/* Card 7: กำไรเดือนนี้ (custom — expense + net profit) */}
           <div className="kpi-card">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
@@ -314,7 +351,7 @@ export default function ExecutiveDashboard() {
             )}
           </div>
 
-          {/* Card 4: ROI */}
+          {/* Card 8: ROI */}
           <KpiCard
             title="ROI เดือนนี้"
             value={`${kpi.roi.toFixed(2)}%`}
@@ -323,7 +360,16 @@ export default function ExecutiveDashboard() {
             iconBg="bg-orange-50"
           />
 
-          {/* Card 5: NPL */}
+          {/* Card 9: Forecast 7 วัน */}
+          <KpiCard
+            title="Forecast 7 วัน"
+            value={formatCurrency(kpi.forecast7Days)}
+            sub="ยอดที่จะรับภายใน 7 วัน"
+            icon={<Calendar size={18} className="text-cyan-600" />}
+            iconBg="bg-cyan-50"
+          />
+
+          {/* Card 10: NPL */}
           <KpiCard
             title="NPL"
             value={kpi.nplRate === 0 ? '0%' : `${(kpi.nplRate * 100).toFixed(2)}%`}
@@ -332,7 +378,7 @@ export default function ExecutiveDashboard() {
             iconBg={kpi.nplRate === 0 ? 'bg-green-50' : 'bg-red-50'}
           />
 
-          {/* Card 6: ลูกหนี้ค้างชำระ */}
+          {/* Card 11: ลูกหนี้ค้างชำระ */}
           <KpiCard
             title="ลูกหนี้ค้างชำระ"
             value={`${kpi.overdueCount} ราย`}
@@ -350,34 +396,16 @@ export default function ExecutiveDashboard() {
             onClick={() => navigate('/overdue')}
           />
 
-          {/* Card 7: Average Loan */}
+          {/* Card 12: หนี้เสีย */}
           <KpiCard
-            title="Average Loan"
-            value={formatCurrency(kpi.averageLoan)}
-            sub={`เฉลี่ยต่อสัญญา`}
-            icon={<PiggyBank size={18} className="text-indigo-600" />}
-            iconBg="bg-indigo-50"
+            title="หนี้เสีย"
+            value={formatCurrency(kpi.badDebtAmount)}
+            sub={`${kpi.badDebtCount} ราย`}
+            icon={<Skull size={18} className={kpi.badDebtCount === 0 ? 'text-green-600' : 'text-red-500'} />}
+            iconBg={kpi.badDebtCount === 0 ? 'bg-green-50' : 'bg-red-50'}
           />
 
-          {/* Card 8: Repeat Customer */}
-          <KpiCard
-            title="Repeat Customer"
-            value={`${kpi.repeatCustomerRate.toFixed(0)}%`}
-            sub={`กลับมากู้ซ้ำ ${kpi.repeatCustomers}/${kpi.totalCustomers} ราย`}
-            icon={<Users size={18} className="text-teal-600" />}
-            iconBg="bg-teal-50"
-          />
-
-          {/* Card 9: Forecast 7 วัน */}
-          <KpiCard
-            title="Forecast 7 วัน"
-            value={formatCurrency(kpi.forecast7Days)}
-            sub="ยอดที่จะรับภายใน 7 วัน"
-            icon={<Calendar size={18} className="text-cyan-600" />}
-            iconBg="bg-cyan-50"
-          />
-
-          {/* Card 10: Cash Utilization (custom — has progress bar) */}
+          {/* Card 13: Cash Utilization (custom — has progress bar) */}
           <div className="kpi-card">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
@@ -405,6 +433,24 @@ export default function ExecutiveDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Card 14: Average Loan */}
+          <KpiCard
+            title="Average Loan"
+            value={formatCurrency(kpi.averageLoan)}
+            sub={`เฉลี่ยต่อสัญญา`}
+            icon={<PiggyBank size={18} className="text-indigo-600" />}
+            iconBg="bg-indigo-50"
+          />
+
+          {/* Card 15: Repeat Customer */}
+          <KpiCard
+            title="Repeat Customer"
+            value={`${kpi.repeatCustomerRate.toFixed(0)}%`}
+            sub={`กลับมากู้ซ้ำ ${kpi.repeatCustomers}/${kpi.totalCustomers} ราย`}
+            icon={<Users size={18} className="text-teal-600" />}
+            iconBg="bg-teal-50"
+          />
         </div>
       </div>
 

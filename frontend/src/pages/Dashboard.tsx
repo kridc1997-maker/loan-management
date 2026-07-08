@@ -1,83 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Wallet, TrendingUp, PiggyBank, BadgeDollarSign,
-  AlertTriangle, Users, XCircle, Phone, Landmark, Receipt,
-  CheckCircle, Info,
-} from 'lucide-react'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
-} from 'recharts'
-import KpiCard from '../components/ui/KpiCard'
+import { Phone, Receipt } from 'lucide-react'
 import StatusBadge from '../components/ui/StatusBadge'
 import { formatCurrency, overdueBadgeClass, daysOverdue, isInstallmentBased } from '../utils/financial'
 import { dashboardApi, paymentApi } from '../api/endpoints'
-import type { DashboardSummary, CashFlowSummary, TopCustomer, DueTodayItem } from '../types'
-
-type InsightType = 'good' | 'bad' | 'warn' | 'info'
-interface Insight { text: string; type: InsightType }
-
-function generateInsights(d: DashboardSummary): Insight[] {
-  const netExpense = d.capitalOutThisMonth + d.expenseThisMonth
-  const netProfit = d.profitThisMonth - netExpense + d.capitalInThisMonth
-  const totalAsset = d.cashOnHand + d.outstandingPrincipal
-  const utilization = totalAsset > 0 ? (d.outstandingPrincipal / totalAsset) * 100 : 0
-  return [
-    {
-      text: `กำไรสุทธิเดือนนี้ ${formatCurrency(netProfit)} หลังหักค่าใช้จ่าย`,
-      type: 'info',
-    },
-    {
-      text: `พอร์ตยังแข็งแรง สัดส่วนสินเชื่อ ${utilization.toFixed(1)}%`,
-      type: 'info',
-    },
-    {
-      text: `คาดรับชำระใน 7 วันข้างหน้า ${formatCurrency(d.forecast7Days)}`,
-      type: 'info',
-    },
-  ]
-}
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-white border border-gray-100 rounded-xl shadow-lg p-3 text-xs">
-        <p className="font-semibold text-gray-600 mb-2">{label}</p>
-        {payload.map((p: any) => (
-          <div key={p.name} className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-            <span className="text-gray-500">{p.name}:</span>
-            <span className="font-semibold text-gray-900">{formatCurrency(p.value)}</span>
-          </div>
-        ))}
-      </div>
-    )
-  }
-  return null
-}
+import type { DueTodayItem } from '../types'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [summary, setSummary] = useState<DashboardSummary | null>(null)
-  const [cashFlow, setCashFlow] = useState<CashFlowSummary | null>(null)
-  const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([])
   const [dueToday, setDueToday] = useState<DueTodayItem[]>([])
   const [loading, setLoading] = useState(true)
   const [dailyPayments, setDailyPayments] = useState<any[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    Promise.all([
-      dashboardApi.summary(),
-      dashboardApi.cashFlow(7),
-      dashboardApi.topCustomers(5),
-      dashboardApi.dueToday(),
-    ]).then(([s, cf, top, due]) => {
-      setSummary(s.data.data)
-      setCashFlow(cf.data.data)
-      setTopCustomers(top.data.data ?? [])
-      setDueToday(due.data.data ?? [])
+    dashboardApi.dueToday().then((res) => {
+      setDueToday(res.data.data ?? [])
     }).finally(() => setLoading(false))
   }, [])
 
@@ -87,7 +25,7 @@ export default function Dashboard() {
     }).catch(() => {})
   }, [selectedDate])
 
-  if (loading || !summary) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -95,226 +33,11 @@ export default function Dashboard() {
     )
   }
 
-  const d = summary
-  const chartData = (cashFlow?.daily ?? []).map((day) => ({
-    date: day.date.slice(5).replace('-', '/'),
-    รับเข้า: day.in,
-    จ่ายออก: day.out,
-    คงเหลือ: day.balance,
-  }))
-
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-xl font-bold text-gray-900">หน้าแรก</h1>
         <p className="text-sm text-gray-500 mt-0.5">ภาพรวมธุรกิจวันนี้</p>
-      </div>
-
-      {/* KPI Row 1 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          title="เงินสดในมือ"
-          value={formatCurrency(d.cashOnHand)}
-          sub="ยอดคงเหลือปัจจุบัน"
-          icon={<Wallet size={18} className="text-blue-600" />}
-          iconBg="bg-blue-50"
-        />
-        <KpiCard
-          title="เงินต้นคงค้าง"
-          value={formatCurrency(d.outstandingPrincipal)}
-          sub={`${d.activeLoansCount} สัญญา Active`}
-          icon={<BadgeDollarSign size={18} className="text-purple-600" />}
-          iconBg="bg-purple-50"
-          onClick={() => navigate('/loans')}
-        />
-        <KpiCard
-          title="ทุนรวม (Total Asset)"
-          value={formatCurrency(d.totalAsset)}
-          sub="เงินสด + เงินต้นคงค้าง"
-          icon={<PiggyBank size={18} className="text-indigo-600" />}
-          iconBg="bg-indigo-50"
-        />
-        <KpiCard
-          title="ยอดรับคืนทั้งหมด"
-          value={formatCurrency(d.cashOnHand + d.outstandingPrincipal + d.expectedProfit)}
-          sub="เงินสด + เงินต้นคงค้าง + กำไรคาดการณ์"
-          icon={<Landmark size={18} className="text-orange-600" />}
-          iconBg="bg-orange-50"
-        />
-      </div>
-
-      {/* KPI Row 2 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          title="กำไรเดือนนี้"
-          value={formatCurrency(d.profitThisMonth)}
-          sub={`คาดการณ์ ${formatCurrency(d.expectedProfit)}`}
-          sub2={`รายจ่ายสุทธิ ${formatCurrency(d.capitalOutThisMonth + d.expenseThisMonth)}`}
-          icon={<TrendingUp size={18} className="text-emerald-600" />}
-          iconBg="bg-emerald-50"
-        />
-        <KpiCard
-          title="กำไรวันนี้"
-          value={formatCurrency(d.profitToday)}
-          sub={`รับมาทั้งหมด ${formatCurrency(d.receivedToday)}`}
-          icon={<TrendingUp size={18} className="text-green-600" />}
-          iconBg="bg-green-50"
-          trend={{ value: 'วันนี้', positive: true }}
-        />
-        <KpiCard
-          title="ลูกหนี้ค้างชำระ"
-          value={formatCurrency(d.overdueAmount)}
-          sub={`${d.overdueCount} ราย`}
-          icon={<AlertTriangle size={18} className="text-yellow-600" />}
-          iconBg="bg-yellow-50"
-          onClick={() => navigate('/overdue')}
-        />
-        <KpiCard
-          title="หนี้เสีย"
-          value={formatCurrency(d.badDebtAmount)}
-          sub={`${d.badDebtCount} ราย`}
-          icon={<XCircle size={18} className="text-red-500" />}
-          iconBg="bg-red-50"
-        />
-      </div>
-
-      {/* Quick Insights */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {generateInsights(d).map((item, idx) => {
-          const cfg = {
-            good: {
-              wrap: 'border-l-4 border-l-emerald-400',
-              bg: 'rgba(16,185,129,0.12)',
-              border: 'rgba(52,211,153,0.25)',
-              text: '#6ee7b7',
-              icon: <CheckCircle size={20} className="flex-shrink-0" style={{ color: '#34d399' }} />,
-            },
-            bad: {
-              wrap: 'border-l-4 border-l-red-400',
-              bg: 'rgba(239,68,68,0.12)',
-              border: 'rgba(252,165,165,0.25)',
-              text: '#fca5a5',
-              icon: <XCircle size={20} className="flex-shrink-0" style={{ color: '#f87171' }} />,
-            },
-            warn: {
-              wrap: 'border-l-4 border-l-yellow-400',
-              bg: 'rgba(234,179,8,0.12)',
-              border: 'rgba(253,224,71,0.25)',
-              text: '#fde047',
-              icon: <AlertTriangle size={20} className="flex-shrink-0" style={{ color: '#facc15' }} />,
-            },
-            info: {
-              wrap: 'border-l-4 border-l-blue-400',
-              bg: 'rgba(59,130,246,0.12)',
-              border: 'rgba(147,197,253,0.25)',
-              text: '#93c5fd',
-              icon: <Info size={20} className="flex-shrink-0" style={{ color: '#60a5fa' }} />,
-            },
-          }[item.type]
-          return (
-            <div
-              key={idx}
-              className={`flex items-center gap-3 px-5 py-4 rounded-xl ${cfg.wrap}`}
-              style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}
-            >
-              {cfg.icon}
-              <p className="text-sm font-semibold leading-snug" style={{ color: cfg.text }}>{item.text}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Charts + Top Customers */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900">Cash Flow (7 วันล่าสุด)</h2>
-              <p className="text-xs text-gray-500 mt-0.5">รับเข้า vs จ่ายออก</p>
-            </div>
-            <div className="flex gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-blue-500" />
-                <span className="text-gray-500">รับเข้า</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-red-400" />
-                <span className="text-gray-500">จ่ายออก</span>
-              </div>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData} barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="รับเข้า" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="จ่ายออก" fill="#f87171" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-
-          <div className="flex gap-6 mt-4 pt-4 border-t border-gray-50">
-            <div>
-              <p className="text-xs text-gray-500">รับเข้ารวม</p>
-              <p className="text-sm font-bold text-blue-600">{formatCurrency(cashFlow?.totalIn ?? 0)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">จ่ายออกรวม</p>
-              <p className="text-sm font-bold text-red-500">{formatCurrency(cashFlow?.totalOut ?? 0)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Net Flow</p>
-              <p className={`text-sm font-bold ${(cashFlow?.netFlow ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {(cashFlow?.netFlow ?? 0) >= 0 ? '+' : ''}{formatCurrency(cashFlow?.netFlow ?? 0)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Customers */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-900">Top ลูกค้า</h2>
-            <Users size={16} className="text-gray-400" />
-          </div>
-          <div className="space-y-3">
-            {topCustomers.map((c, idx) => (
-              <div
-                key={c.customerId}
-                className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 cursor-pointer"
-                onClick={() => navigate(`/customers/${c.customerId}`)}
-              >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                  ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : idx === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'}`}>
-                  {idx + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-900 truncate">{c.customerName}</p>
-                  <p className="text-xs text-gray-500">{c.loanCount} สัญญา · ปิดแล้ว {c.closedLoansCount} สัญญา</p>
-                </div>
-                {c.creditScore !== null ? (
-                  <div className="text-right flex-shrink-0">
-                    <p className={`text-xs font-bold leading-tight ${
-                      c.creditScore >= 85 ? 'text-green-600'
-                      : c.creditScore >= 70 ? 'text-blue-600'
-                      : c.creditScore >= 50 ? 'text-yellow-600'
-                      : 'text-red-600'
-                    }`}>{c.creditScore}</p>
-                    <p className={`text-xs leading-tight ${
-                      c.creditScore >= 85 ? 'text-green-500'
-                      : c.creditScore >= 70 ? 'text-blue-500'
-                      : c.creditScore >= 50 ? 'text-yellow-500'
-                      : 'text-red-500'
-                    }`}>{c.creditLabel}</p>
-                  </div>
-                ) : (
-                  <span className="text-xs text-gray-400">-</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Due Today Table */}

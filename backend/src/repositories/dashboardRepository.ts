@@ -183,6 +183,9 @@ export const dashboardRepo = {
     const yesterday = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
     const sevenDaysLater = new Date(now.getTime() + 7 * 86400000).toISOString().split('T')[0]
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().split('T')[0]
+    const dayOfWeek = now.getDay() // 0=Sun..6=Sat
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    const weekStart = new Date(now.getTime() - daysSinceMonday * 86400000).toISOString().split('T')[0]
 
     const [
       cashRow,
@@ -198,6 +201,10 @@ export const dashboardRepo = {
       revenueTrendRows,
       portfolioGrowthRows,
       expenseMonthRow,
+      expectedProfitRow,
+      profitTodayRow,
+      receivedTodayRow,
+      profitWeekRow,
     ] = await Promise.all([
       db('cash_transactions').select('balance_after').orderBy('id', 'desc').first(),
       db('cash_transactions')
@@ -287,6 +294,16 @@ export const dashboardRepo = {
         .whereIn('txn_type', ['expense', 'capital_out', 'capital_in'])
         .whereRaw('txn_date::date >= ?::date', [monthStart])
         .first(),
+      db('loans').sum({ total: db.raw('(total_amount - principal_amount) - paid_interest') }).whereIn('status', ['active', 'overdue']).first(),
+      db('payments')
+        .select(db.raw("COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) as total"))
+        .whereRaw("payment_date::date = ?::date", [today])
+        .first(),
+      db('payments').sum('amount as total').whereRaw("payment_date::date = ?::date", [today]).first(),
+      db('payments')
+        .select(db.raw("COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) as total"))
+        .whereRaw("payment_date::date >= ?::date", [weekStart])
+        .first(),
     ])
 
     const [repeatRaw, riskMonitorRaw, topCustomersRaw] = await Promise.all([
@@ -368,6 +385,11 @@ export const dashboardRepo = {
     const capitalInThisMonth = Number(expenseMonthRow?.capital_in_total ?? 0)
     const netExpense = expenseThisMonth + capitalOutThisMonth
 
+    const expectedProfit = Number((expectedProfitRow as any)?.total ?? 0)
+    const profitToday = Number((profitTodayRow as any)?.total ?? 0)
+    const receivedToday = Number((receivedTodayRow as any)?.total ?? 0)
+    const profitThisWeek = Number((profitWeekRow as any)?.total ?? 0)
+
     const repeatData = (repeatRaw as any).rows?.[0] ?? {}
     const totalCustomers = Number(repeatData.total_customers ?? 0)
     const repeatCustomers = Number(repeatData.repeat_customers ?? 0)
@@ -448,6 +470,7 @@ export const dashboardRepo = {
         healthActiveScore: activeScore,
         healthBadDebtScore: badDebtScore,
         expenseThisMonth, capitalOutThisMonth, capitalInThisMonth, netExpense,
+        expectedProfit, profitToday, receivedToday, profitThisWeek,
       },
       cashForecast,
       portfolioByType: portfolioByTypeRows.map((r: any) => ({

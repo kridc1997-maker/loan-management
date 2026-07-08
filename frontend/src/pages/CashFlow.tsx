@@ -54,6 +54,12 @@ const TXN_TYPE_LABELS: Record<string, { label: string; color: string; bg: string
   balance_adjust:   { label: 'ปรับยอด',       color: '#546E7A', bg: '#ECEFF1' },
 }
 
+const DAILY_FILTERS: { value: string[]; label: string }[] = [
+  { value: [], label: 'ทั้งหมด' },
+  { value: ['capital_in'], label: 'เพิ่มทุน' },
+  { value: ['capital_out', 'expense'], label: 'ถอนทุน/ค่าใช้จ่าย' },
+]
+
 function dailyTxnBadge(txnType: string) {
   const t = TXN_TYPE_LABELS[txnType] ?? { label: txnType, color: '#546E7A', bg: '#ECEFF1' }
   return (
@@ -98,7 +104,7 @@ export default function CashFlow() {
   const [rangeTo,   setRangeTo]   = useState(new Date().toISOString().split('T')[0])
   const [dailyTxns, setDailyTxns] = useState<any[]>([])
   const [dailyLoading, setDailyLoading] = useState(false)
-  const [dailyFilter, setDailyFilter] = useState<string | null>(null)
+  const [dailyFilter, setDailyFilter] = useState<string[]>(DAILY_FILTERS[0].value)
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -196,7 +202,7 @@ export default function CashFlow() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">Cash Flow</h1>
+        <h1 className="text-xl font-bold text-gray-900">จัดการกระเป๋าตัง</h1>
         <p className="text-sm text-gray-500 mt-0.5">ติดตามกระแสเงินสดและจัดการเงินสดในมือ</p>
       </div>
 
@@ -403,13 +409,8 @@ export default function CashFlow() {
         <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-gray-900 flex-shrink-0">รายการรับ-จ่ายรายวัน</h2>
           <div className="flex items-center gap-1.5">
-            {[
-              { value: null,          label: 'ทั้งหมด' },
-              { value: 'capital_in',  label: 'เพิ่มทุน' },
-              { value: 'capital_out', label: 'ถอนทุน' },
-              { value: 'expense',     label: 'ค่าใช้จ่าย' },
-            ].map((f) => (
-              <button key={String(f.value)} onClick={() => setDailyFilter(f.value)}
+            {DAILY_FILTERS.map((f) => (
+              <button key={f.label} onClick={() => setDailyFilter(f.value)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                   dailyFilter === f.value
                     ? 'bg-blue-600 text-white'
@@ -461,9 +462,9 @@ export default function CashFlow() {
           <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
         ) : (
           (() => {
-            const filtered = dailyFilter
-              ? dailyTxns.filter((t: any) => t.txn_type === dailyFilter)
-              : dailyTxns
+            const filtered = dailyFilter.length === 0
+              ? dailyTxns
+              : dailyTxns.filter((t: any) => dailyFilter.includes(t.txn_type))
             return filtered.length === 0 ? (
               <div className="py-12 text-center">
                 <p className="text-sm text-gray-400">ไม่มีรายการ{dailyFilter ? 'ประเภทนี้' : ''}ในวันนี้</p>

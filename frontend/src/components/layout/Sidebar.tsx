@@ -6,7 +6,7 @@ import {
 import { useAppStore } from '../../stores/appStore'
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/', label: 'หน้าแรก', icon: LayoutDashboard, end: true },
   { divider: 'ผู้บริหาร' },
   { to: '/executive', label: 'Executive Dashboard', icon: Activity },
   { divider: 'ลูกค้า' },
@@ -18,7 +18,7 @@ const navItems = [
   { to: '/payments', label: 'รับชำระเงิน', icon: CreditCard },
   { to: '/overdue', label: 'ค้างชำระ', icon: AlertTriangle },
   { to: '/bad-debt', label: 'หนี้เสีย', icon: Skull },
-  { to: '/cash-flow', label: 'Cash Flow', icon: TrendingUp },
+  { to: '/cash-flow', label: 'จัดการกระเป๋าตัง', icon: TrendingUp },
   { to: '/reports', label: 'รายงาน', icon: BarChart2 },
   { divider: 'ระบบ' },
   { to: '/users', label: 'จัดการผู้ใช้', icon: UserCog },
