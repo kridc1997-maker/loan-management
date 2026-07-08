@@ -25,6 +25,8 @@ export default function NewLoan() {
 
   const [principal, setPrincipal] = useState('')
   const [totalAmount, setTotalAmount] = useState('')
+  const [interestMode, setInterestMode] = useState<'amount' | 'percent'>('amount')
+  const [interestPercent, setInterestPercent] = useState('')
   const [loanType, setLoanType] = useState<LoanType>('single')
   const [installmentCount, setInstallmentCount] = useState(1)
   const [issuedDate, setIssuedDate] = useState(todayInputDate())
@@ -51,6 +53,14 @@ export default function NewLoan() {
     }, 300)
     return () => clearTimeout(timer)
   }, [customerSearch, selectedCustomer])
+
+  // percent mode: derive ยอดที่ต้องชำระ from เงินต้น + เปอร์เซ็นต์ดอกเบี้ย
+  useEffect(() => {
+    if (interestMode !== 'percent') return
+    const p = Number(principal) || 0
+    const pct = Number(interestPercent) || 0
+    setTotalAmount(p > 0 ? String(Math.round((p + (p * pct) / 100) * 100) / 100) : '')
+  }, [interestMode, principal, interestPercent])
 
   // daily: count from dailyAmount, 1-day spacing
   const dailyCount = loanType === 'daily' && Number(dailyAmount) > 0 && Number(totalAmount) > 0
@@ -169,15 +179,40 @@ export default function NewLoan() {
             <input type="number" className="input" placeholder="0"
               value={principal} onChange={(e) => setPrincipal(e.target.value)} />
           </div>
-          <div>
-            <label className="label">ยอดที่ต้องชำระ (฿) *</label>
-            <input type="number" className="input" placeholder="0"
-              value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
-          </div>
+          {interestMode === 'amount' ? (
+            <div>
+              <label className="label">ยอดที่ต้องชำระ (฿) *</label>
+              <input type="number" className="input" placeholder="0"
+                value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} />
+            </div>
+          ) : (
+            <div>
+              <label className="label">ดอกเบี้ย (%) *</label>
+              <input type="number" className="input" placeholder="0"
+                value={interestPercent} onChange={(e) => setInterestPercent(e.target.value)} />
+            </div>
+          )}
         </div>
+
+        <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer w-fit">
+          <input type="checkbox" className="accent-blue-600 w-3.5 h-3.5"
+            checked={interestMode === 'percent'}
+            onChange={(e) => {
+              const checked = e.target.checked
+              setInterestMode(checked ? 'percent' : 'amount')
+              if (checked) setInterestPercent(interestRate > 0 ? String(Math.round(interestRate * 1000) / 10) : '')
+            }} />
+          ระบุดอกเบี้ยเป็นเปอร์เซ็นต์แทนยอดชำระ
+        </label>
 
         {Number(principal) > 0 && Number(totalAmount) > Number(principal) && (
           <div className="flex gap-4 p-3 bg-green-50 rounded-xl text-sm">
+            {interestMode === 'percent' && (
+              <div>
+                <p className="text-xs text-gray-500">ยอดที่ต้องชำระ</p>
+                <p className="font-bold text-green-700">{formatCurrency(Number(totalAmount))}</p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-gray-500">ดอกเบี้ย</p>
               <p className="font-bold text-green-700">{formatCurrency(interest)}</p>
