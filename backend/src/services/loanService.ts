@@ -609,6 +609,81 @@ export const loanService = {
       return badDebt
     })
   },
+
+  async deletePayment(paymentId: number, userId?: number) {
+    const payment = await db('payments')
+      .select('*', db.raw("(payment_date::date = CURRENT_DATE) as is_today"))
+      .where({ id: paymentId }).first()
+    if (!payment) throw new AppError(404, 'ไม่พบรายการชำระ')
+    if (!payment.is_today) throw new AppError(400, 'ลบได้เฉพาะรายการที่รับชำระวันนี้เท่านั้น')
+    if (!['normal', 'partial', 'full'].includes(payment.payment_type)) {
+      throw new AppError(400, 'ไม่สามารถลบรายการประเภทนี้ได้ (ต่อดอก/รียอด/หนี้เสีย)')
+    }
+
+    return db.transaction(async (trx) => {
+      const loan = await trx('loans').where({ id: payment.loan_id }).first()
+      if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
+
+      // Undo the cash ledger entry, then patch every later row's running balance by the same delta
+      // (the exact pattern used to recover from a leftover test-data ledger corruption earlier).
+      const cashTxn = await trx('cash_transactions').where({ payment_id: paymentId }).first()
+      if (cashTxn) {
+        const netDelta = cashTxn.direction === 'in' ? Number(cashTxn.amount) : -Number(cashTxn.amount)
+        await trx('cash_transactions').where({ id: cashTxn.id }).del()
+        await trx('cash_transactions').where('id', '>', cashTxn.id)
+          .update({ balance_after: trx.raw('balance_after - ?', [netDelta]) })
+      }
+
+      if (payment.installment_id) {
+        await trx('loan_installments').where({ id: payment.installment_id })
+          .update({ status: 'pending', paid_amount: 0, paid_date: null, updated_at: new Date() })
+      }
+
+      await trx('payments').where({ id: paymentId }).del()
+
+      let newPaidPrincipal: number
+      let newPaidInterest: number
+      if (loan.loan_type === 'single') {
+        newPaidPrincipal = Number(loan.paid_principal) - Number(payment.principal_paid)
+        newPaidInterest = Number(loan.paid_interest) - Number(payment.interest_paid)
+      } else {
+        const totals = await trx('payments').where({ loan_id: loan.id })
+          .select(
+            trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
+            trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
+          ).first()
+        newPaidPrincipal = Number(totals?.paid_principal ?? 0)
+        newPaidInterest = Number(totals?.paid_interest ?? 0)
+      }
+
+      let newPaidInstallments = loan.paid_installments
+      if (isInstallmentBased(loan.loan_type)) {
+        const paidCount = await trx('loan_installments')
+          .where({ loan_id: loan.id, status: 'paid' }).count('id as cnt').first()
+        newPaidInstallments = Number((paidCount as any)?.cnt ?? 0)
+      }
+
+      const wasCompleted = loan.status === 'completed'
+      await trx('loans').where({ id: loan.id }).update({
+        paid_principal: Math.max(0, newPaidPrincipal),
+        paid_interest: Math.max(0, newPaidInterest),
+        paid_installments: newPaidInstallments,
+        status: wasCompleted ? 'active' : loan.status,
+        closed_date: wasCompleted ? null : loan.closed_date,
+        updated_at: new Date(),
+      })
+
+      await trx('audit_logs').insert({
+        user_id: userId,
+        action: 'DELETE_PAYMENT',
+        entity_type: 'loan',
+        entity_id: loan.id,
+        old_data: JSON.stringify(payment),
+      })
+
+      return { deleted: true }
+    })
+  },
 }
 
 async function getCurrentBalance(trx: any): Promise<number> {

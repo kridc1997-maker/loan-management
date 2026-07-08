@@ -57,6 +57,7 @@ export const loanApi = {
 export const paymentApi = {
   list: (params?: Record<string, any>) => api.get('/payments', { params }),
   daily: (date: string) => api.get('/payments/daily', { params: { date } }),
+  remove: (id: number, password: string) => api.delete(`/payments/${id}`, { data: { password } }),
 }
 
 // ─── Bad Debts ────────────────────────────────────────────────────────────────

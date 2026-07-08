@@ -1,13 +1,16 @@
 import { Router } from 'express'
+import bcrypt from 'bcryptjs'
 import { authController } from '../controllers/authController'
 import { customerController } from '../controllers/customerController'
 import { loanController } from '../controllers/loanController'
+import { loanService } from '../services/loanService'
 import { dashboardController } from '../controllers/dashboardController'
 import { badDebtController } from '../controllers/badDebtController'
 import { userController } from '../controllers/userController'
 import { authenticate, requireAdmin } from '../middleware/auth'
 import { dashboardRepo } from '../repositories/dashboardRepository'
 import { logAudit } from '../utils/auditLog'
+import { AppError } from '../middleware/errorHandler'
 import db from '../db/connection'
 
 const router = Router()
@@ -133,6 +136,20 @@ router.get('/payments/daily', authenticate, async (req, res, next) => {
       .whereRaw('p.payment_date::date = ?::date', [date])
       .orderBy('p.id', 'desc')
     res.json({ success: true, data: rows })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.delete('/payments/:id', authenticate, requireAdmin, async (req: any, res, next) => {
+  try {
+    const { password } = req.body as { password?: string }
+    if (!password) throw new AppError(400, 'กรุณากรอกรหัสผ่าน')
+    const user = await db('users').where({ id: req.user.userId }).first()
+    const valid = user && await bcrypt.compare(password, user.password_hash)
+    if (!valid) throw new AppError(401, 'รหัสผ่านไม่ถูกต้อง')
+    const result = await loanService.deletePayment(Number(req.params.id), req.user.userId)
+    res.json({ success: true, data: result })
   } catch (err) {
     next(err)
   }
