@@ -7,6 +7,7 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
 import { formatCurrency } from '../../utils/financial'
 import { customerApi } from '../../api/endpoints'
+import { useLoanCreationPaused } from '../../hooks/useLoanCreationPaused'
 import type { Customer, CustomerForm } from '../../types'
 import { useAppStore } from '../../stores/appStore'
 
@@ -93,6 +94,7 @@ function CustomerForm({ onClose, onSubmit, initialData }: {
 export default function CustomerList() {
   const navigate = useNavigate()
   const { addToast } = useAppStore()
+  const loanCreationPaused = useLoanCreationPaused()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
@@ -273,19 +275,21 @@ export default function CustomerList() {
                         >
                           <Pencil size={15} />
                         </button>
-                        <button
-                          onClick={() => {
-                            if (needsLoanConfirm(c)) {
-                              setLoanConfirmCustomer(c)
-                            } else {
-                              navigate(`/loans/new`, { state: { customerId: c.id, customerName: `${c.firstName} ${c.lastName}` } })
-                            }
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
-                          title="ปล่อยกู้"
-                        >
-                          <FilePlus size={15} />
-                        </button>
+                        {!loanCreationPaused && (
+                          <button
+                            onClick={() => {
+                              if (needsLoanConfirm(c)) {
+                                setLoanConfirmCustomer(c)
+                              } else {
+                                navigate(`/loans/new`, { state: { customerId: c.id, customerName: `${c.firstName} ${c.lastName}` } })
+                              }
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                            title="ปล่อยกู้"
+                          >
+                            <FilePlus size={15} />
+                          </button>
+                        )}
                         <button
                           onClick={() => navigate(`/customers/${c.id}`)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"

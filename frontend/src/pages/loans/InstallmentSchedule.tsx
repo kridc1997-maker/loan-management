@@ -31,7 +31,7 @@ export default function InstallmentSchedule() {
   const navigate = useNavigate()
   const [rows, setRows] = useState<InstallmentRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('pending')
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')

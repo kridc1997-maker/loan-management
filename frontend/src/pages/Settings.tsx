@@ -1,38 +1,24 @@
 import { useState, useEffect } from 'react'
-import { Save } from 'lucide-react'
+import { Save, Ban } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { settingsApi } from '../api/endpoints'
 
 export default function Settings() {
   const { addToast } = useAppStore()
-  const [form, setForm] = useState({
-    business_name: '',
-    default_interest_rate: '',
-    overdue_threshold_days: '',
-    bad_debt_threshold_days: '',
-    currency: 'THB',
-  })
+  const [paused, setPaused] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     settingsApi.get().then((res) => {
       const s = res.data.data ?? {}
-      setForm({
-        business_name: s.business_name ?? 'My Loan Business',
-        default_interest_rate: s.default_interest_rate ?? '25',
-        overdue_threshold_days: s.overdue_threshold_days ?? '1',
-        bad_debt_threshold_days: s.bad_debt_threshold_days ?? '90',
-        currency: s.currency ?? 'THB',
-      })
+      setPaused(s.loan_creation_paused === 'true')
     }).finally(() => setLoading(false))
   }, [])
 
-  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
-
   const handleSave = () => {
     setSaving(true)
-    settingsApi.update(form).then(() => {
+    settingsApi.update({ loan_creation_paused: paused ? 'true' : 'false' }).then(() => {
       addToast('success', 'บันทึกการตั้งค่าสำเร็จ')
     }).catch(() => {
       addToast('error', 'เกิดข้อผิดพลาด ไม่สามารถบันทึกได้')
@@ -55,26 +41,26 @@ export default function Settings() {
       </div>
 
       <div className="card space-y-4">
-        <h2 className="text-sm font-semibold text-gray-900">ข้อมูลธุรกิจ</h2>
-        <div>
-          <label className="label">ชื่อธุรกิจ</label>
-          <input className="input" value={form.business_name} onChange={(e) => set('business_name', e.target.value)} />
-        </div>
-      </div>
-
-      <div className="card space-y-4">
-        <h2 className="text-sm font-semibold text-gray-900">ค่าเริ่มต้นการปล่อยกู้</h2>
-        <div>
-          <label className="label">อัตราดอกเบี้ยเริ่มต้น (%)</label>
-          <input type="number" className="input" value={form.default_interest_rate} onChange={(e) => set('default_interest_rate', e.target.value)} />
-        </div>
-        <div>
-          <label className="label">จำนวนวันก่อนถือว่าค้างชำระ</label>
-          <input type="number" className="input" value={form.overdue_threshold_days} onChange={(e) => set('overdue_threshold_days', e.target.value)} />
-        </div>
-        <div>
-          <label className="label">จำนวนวันค้างก่อนตัดหนี้สูญ</label>
-          <input type="number" className="input" value={form.bad_debt_threshold_days} onChange={(e) => set('bad_debt_threshold_days', e.target.value)} />
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-red-50">
+              <Ban size={18} className="text-red-600" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">หยุดสร้างสัญญาใหม่ชั่วคราว</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                เมื่อเปิดใช้งาน ปุ่มสร้างสัญญา/ปล่อยกู้ใหม่ในทุกหน้าจะถูกซ่อน
+              </p>
+            </div>
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer flex-shrink-0">
+            <div
+              className={`relative w-11 h-6 rounded-full transition-colors ${paused ? 'bg-red-500' : 'bg-gray-300'}`}
+              onClick={() => setPaused((v) => !v)}
+            >
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${paused ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </label>
         </div>
       </div>
 

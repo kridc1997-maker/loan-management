@@ -291,6 +291,17 @@ router.post('/reports/snapshots/generate', authenticate, requireAdmin, async (_r
 })
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
+// Readable by any authenticated user (not just admin) — used to hide the "create loan"
+// buttons app-wide, including on staff-visible pages that can't call the admin-only /settings below.
+router.get('/settings/loan-creation-paused', authenticate, async (_req, res, next) => {
+  try {
+    const row = await db('settings').where({ key: 'loan_creation_paused' }).first()
+    res.json({ success: true, data: { paused: row?.value === 'true' } })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.get('/settings', authenticate, requireAdmin, async (_req, res, next) => {
   try {
     const rows = await db('settings')
@@ -311,7 +322,10 @@ router.put('/settings', authenticate, requireAdmin, async (req: any, res, next) 
     before.forEach((r) => { oldValues[r.key] = r.value })
 
     for (const [key, value] of Object.entries(updates)) {
-      await db('settings').where({ key }).update({ value, updated_at: new Date() })
+      await db('settings')
+        .insert({ key, value, updated_at: new Date() })
+        .onConflict('key')
+        .merge(['value', 'updated_at'])
     }
 
     await logAudit({

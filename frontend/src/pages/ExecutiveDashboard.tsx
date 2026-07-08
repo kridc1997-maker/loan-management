@@ -13,6 +13,7 @@ import {
 import KpiCard from '../components/ui/KpiCard'
 import { formatCurrency, formatDate } from '../utils/financial'
 import { executiveApi } from '../api/endpoints'
+import { useLoanCreationPaused } from '../hooks/useLoanCreationPaused'
 import type { ExecutiveDashboardData, ExecKpi, ExecRiskItem } from '../types'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -199,6 +200,7 @@ export default function ExecutiveDashboard() {
   const navigate = useNavigate()
   const [data, setData] = useState<ExecutiveDashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const loanCreationPaused = useLoanCreationPaused()
 
   const load = () => {
     setLoading(true)
@@ -884,10 +886,12 @@ export default function ExecutiveDashboard() {
       <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Quick Actions</p>
         <div className="flex flex-wrap gap-3">
-          <button onClick={() => navigate('/loans/new')} className="btn-primary gap-2">
-            <Plus size={15} />
-            ปล่อยกู้ใหม่
-          </button>
+          {!loanCreationPaused && (
+            <button onClick={() => navigate('/loans/new')} className="btn-primary gap-2">
+              <Plus size={15} />
+              ปล่อยกู้ใหม่
+            </button>
+          )}
           <button onClick={() => navigate('/payments')} className="btn-primary gap-2">
             <CreditCard size={15} />
             รับชำระ

@@ -5,10 +5,12 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import EmptyState from '../../components/ui/EmptyState'
 import { formatCurrency, formatDate, daysOverdue, todayInputDate, isInstallmentBased } from '../../utils/financial'
 import { loanApi } from '../../api/endpoints'
+import { useLoanCreationPaused } from '../../hooks/useLoanCreationPaused'
 import type { Loan } from '../../types'
 
 export default function ActiveLoans() {
   const navigate = useNavigate()
+  const loanCreationPaused = useLoanCreationPaused()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
   const [loans, setLoans] = useState<Loan[]>([])
@@ -53,9 +55,11 @@ export default function ActiveLoans() {
             ทั้งหมด {loans.length} สัญญา
           </p>
         </div>
-        <button onClick={() => navigate('/loans/new')} className="btn-primary">
-          <Plus size={16} /> สร้างสัญญาใหม่
-        </button>
+        {!loanCreationPaused && (
+          <button onClick={() => navigate('/loans/new')} className="btn-primary">
+            <Plus size={16} /> สร้างสัญญาใหม่
+          </button>
+        )}
       </div>
 
       <div className="card flex items-center gap-3 py-3">

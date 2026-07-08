@@ -232,13 +232,6 @@ export default function CashFlow() {
               <RefreshCw size={16} />
             </button>
             <div className="flex gap-2">
-            <button onClick={() => openModal('set')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-              style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.18)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)' }}>
-              ตั้งยอดเริ่มต้น
-            </button>
             <button onClick={() => openModal('adjust')}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all"
               style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)' }}

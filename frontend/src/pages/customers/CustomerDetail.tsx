@@ -7,6 +7,7 @@ import LoanConfirmModal, { needsLoanConfirm } from '../../components/ui/LoanConf
 import { formatCurrency, formatDate, isInstallmentBased } from '../../utils/financial'
 import { customerApi } from '../../api/endpoints'
 import { useAppStore } from '../../stores/appStore'
+import { useLoanCreationPaused } from '../../hooks/useLoanCreationPaused'
 import type { Customer, Loan, CustomerForm } from '../../types'
 
 interface PaymentStats {
@@ -49,6 +50,7 @@ export default function CustomerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { addToast } = useAppStore()
+  const loanCreationPaused = useLoanCreationPaused()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loans, setLoans] = useState<Loan[]>([])
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
@@ -156,18 +158,20 @@ export default function CustomerDetail() {
             <button onClick={openEdit} className="btn-secondary">
               <Pencil size={15} /> แก้ไข
             </button>
-            <button
-              onClick={() => {
-                if (needsLoanConfirm(customer)) {
-                  setShowLoanConfirm(true)
-                } else {
-                  navigate('/loans/new', { state: { customerId: customer.id, customerName: `${customer.firstName} ${customer.lastName}` } })
-                }
-              }}
-              className="btn-primary"
-            >
-              <FilePlus size={15} /> ปล่อยกู้
-            </button>
+            {!loanCreationPaused && (
+              <button
+                onClick={() => {
+                  if (needsLoanConfirm(customer)) {
+                    setShowLoanConfirm(true)
+                  } else {
+                    navigate('/loans/new', { state: { customerId: customer.id, customerName: `${customer.firstName} ${customer.lastName}` } })
+                  }
+                }}
+                className="btn-primary"
+              >
+                <FilePlus size={15} /> ปล่อยกู้
+              </button>
+            )}
           </div>
         </div>
 
