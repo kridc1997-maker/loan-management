@@ -300,7 +300,7 @@ export default function ExecutiveDashboard() {
                   </p>
                 )}
                 <p className="mt-0.5 text-xs text-gray-600">
-                  (กำไรสุทธิ {formatCurrency(kpi.profitThisMonth - kpi.netExpense)})
+                  (กำไรสุทธิ {formatCurrency(kpi.profitThisMonth - kpi.netExpense + kpi.capitalInThisMonth)})
                 </p>
               </div>
               <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-50">

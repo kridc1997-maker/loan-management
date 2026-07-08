@@ -19,8 +19,8 @@ type InsightType = 'good' | 'bad' | 'warn' | 'info'
 interface Insight { text: string; type: InsightType }
 
 function generateInsights(d: DashboardSummary): Insight[] {
-  const netExpense = d.capitalOutThisMonth + d.expenseThisMonth - d.capitalInThisMonth
-  const netProfit = d.profitThisMonth - netExpense
+  const netExpense = d.capitalOutThisMonth + d.expenseThisMonth
+  const netProfit = d.profitThisMonth - netExpense + d.capitalInThisMonth
   const totalAsset = d.cashOnHand + d.outstandingPrincipal
   const utilization = totalAsset > 0 ? (d.outstandingPrincipal / totalAsset) * 100 : 0
   return [
