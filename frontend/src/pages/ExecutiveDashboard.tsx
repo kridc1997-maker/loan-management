@@ -235,6 +235,9 @@ export default function ExecutiveDashboard() {
   const profitWeekChangePct = kpi.profitLastWeek > 0
     ? (kpi.profitThisWeek - kpi.profitLastWeek) / kpi.profitLastWeek * 100
     : 0
+  const profitDayChangePct = kpi.profitYesterday > 0
+    ? (kpi.profitToday - kpi.profitYesterday) / kpi.profitYesterday * 100
+    : 0
 
   const pieData = portfolioByType.map((item) => ({
     name: LOAN_TYPE_LABELS[item.loanType] ?? item.loanType,
@@ -310,14 +313,32 @@ export default function ExecutiveDashboard() {
             iconBg="bg-indigo-50"
           />
 
-          {/* Card 5: กำไรวันนี้ */}
-          <KpiCard
-            title="กำไรวันนี้"
-            value={formatCurrency(kpi.profitToday)}
-            sub={`รับมาทั้งหมด ${formatCurrency(kpi.receivedToday)}`}
-            icon={<TrendingUp size={18} className="text-green-600" />}
-            iconBg="bg-green-50"
-          />
+          {/* Card 5: กำไรวันนี้ (custom — expense + net profit, mirrors กำไรสัปดาห์นี้) */}
+          <div className="kpi-card">
+            <div className="flex items-start justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">กำไรวันนี้</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(kpi.profitToday)}</p>
+                <p className="mt-0.5 text-xs text-gray-500">รับมาทั้งหมด {formatCurrency(kpi.receivedToday)}</p>
+                {kpi.netExpenseToday !== 0 && (
+                  <p className="mt-0.5 text-xs font-medium text-red-500">
+                    −{formatCurrency(Math.abs(kpi.netExpenseToday))} ค่าใช้จ่ายรวมวันนี้
+                  </p>
+                )}
+                <p className="mt-0.5 text-xs text-gray-600">
+                  (กำไรสุทธิวันนี้ {formatCurrency(kpi.profitToday - kpi.netExpenseToday + kpi.capitalInToday)})
+                </p>
+              </div>
+              <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-green-50">
+                <TrendingUp size={18} className="text-green-600" />
+              </div>
+            </div>
+            {kpi.profitYesterday > 0 && (
+              <p className={`mt-1 text-xs font-medium flex items-center gap-0.5 ${profitDayChangePct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {profitDayChangePct >= 0 ? '▲' : '▼'} {profitDayChangePct >= 0 ? '+' : ''}{profitDayChangePct.toFixed(1)}% vs เมื่อวาน
+              </p>
+            )}
+          </div>
 
           {/* Card 6: กำไรสัปดาห์นี้ (custom — expense + net profit, mirrors กำไรเดือนนี้) */}
           <div className="kpi-card">

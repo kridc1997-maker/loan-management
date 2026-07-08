@@ -132,7 +132,7 @@ export default function Sidebar() {
           style={{ borderColor: 'rgba(255,255,255,0.08)' }}
         >
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
-            KFL v1.0 © 2567
+            KFL v1.1 © 2569
           </p>
         </div>
       )}

@@ -113,7 +113,7 @@ export default function Login() {
 
         {/* Bottom */}
         <p className="relative px-10 pb-8 text-xs" style={{ color:'rgba(255,255,255,0.2)' }}>
-          © 2567 KFL · Krit Frind Loan · ระบบจัดการสินเชื่อรายย่อย
+          © 2569 KFL · Krit Frind Loan · ระบบจัดการสินเชื่อรายย่อย
         </p>
       </div>
 

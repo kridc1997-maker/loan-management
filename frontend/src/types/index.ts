@@ -305,6 +305,11 @@ export interface ExecKpi {
   capitalOutThisWeek: number
   capitalInThisWeek: number
   netExpenseThisWeek: number
+  profitYesterday: number
+  expenseToday: number
+  capitalOutToday: number
+  capitalInToday: number
+  netExpenseToday: number
 }
 
 export interface ExecForecastDay {
