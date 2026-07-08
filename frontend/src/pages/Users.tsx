@@ -293,7 +293,7 @@ export default function Users() {
                   </td>
                 </tr>
                 {expandedLogId === log.id && (
-                  <tr className="bg-gray-50/60">
+                  <tr className="bg-gray-50">
                     <td colSpan={4} className="px-5 py-3">
                       <div className="grid grid-cols-2 gap-4 text-xs">
                         <div>
