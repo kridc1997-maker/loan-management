@@ -17,7 +17,11 @@ const db = knex({
         password: process.env.DB_PASSWORD ?? 'postgres',
         ssl: isRemote ? { rejectUnauthorized: false } : false,
       },
-  pool: { min: 2, max: 10 },
+  // min kept low enough to leave headroom under Supabase's 15-connection pool cap
+  // (shared with Studio/migrations); idleTimeoutMillis raised from pg's 10s default
+  // so connections survive normal gaps between page navigations instead of reconnecting
+  // (each reconnect to the remote DB costs ~1.3s).
+  pool: { min: 4, max: 10, idleTimeoutMillis: 300000 },
   acquireConnectionTimeout: 10000,
 })
 
