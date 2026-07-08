@@ -4,6 +4,7 @@ import {
   AlertTriangle, Skull, TrendingUp, BarChart2, Settings, ChevronRight, UserCog, Activity,
 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
+import { useAuthStore } from '../../stores/authStore'
 
 const navItems = [
   { to: '/', label: 'หน้าแรก', icon: LayoutDashboard, end: true },
@@ -29,8 +30,34 @@ type NavItem =
   | { divider: string }
   | { to: string; label: string; icon: React.ElementType; end?: boolean }
 
+const STAFF_ALLOWED_PATHS = ['/', '/customers', '/loans', '/loans/installments', '/payments', '/overdue', '/bad-debt']
+
+function getVisibleNavItems(role: string | undefined): NavItem[] {
+  const items = navItems as unknown as NavItem[]
+  if (role === 'admin') return items
+
+  const visible: NavItem[] = []
+  let pendingDivider: NavItem | null = null
+  for (const item of items) {
+    if ('divider' in item) {
+      pendingDivider = item
+      continue
+    }
+    if (STAFF_ALLOWED_PATHS.includes(item.to)) {
+      if (pendingDivider) {
+        visible.push(pendingDivider)
+        pendingDivider = null
+      }
+      visible.push(item)
+    }
+  }
+  return visible
+}
+
 export default function Sidebar() {
   const { sidebarOpen } = useAppStore()
+  const { user } = useAuthStore()
+  const visibleNavItems = getVisibleNavItems(user?.role)
 
   return (
     <aside
@@ -71,7 +98,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2">
-        {(navItems as unknown as NavItem[]).map((item, idx) => {
+        {visibleNavItems.map((item, idx) => {
           if ('divider' in item) {
             return sidebarOpen ? (
               <p

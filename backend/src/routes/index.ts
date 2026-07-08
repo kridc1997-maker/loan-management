@@ -17,14 +17,14 @@ router.post('/auth/refresh', authController.refresh)
 router.get('/auth/me', authenticate, authController.me)
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-router.get('/dashboard/summary', authenticate, dashboardController.summary)
-router.get('/dashboard/cash-flow', authenticate, dashboardController.cashFlow)
+router.get('/dashboard/summary', authenticate, requireAdmin, dashboardController.summary)
+router.get('/dashboard/cash-flow', authenticate, requireAdmin, dashboardController.cashFlow)
 router.get('/dashboard/due-today', authenticate, dashboardController.dueToday)
-router.get('/dashboard/top-customers', authenticate, dashboardController.topCustomers)
-router.get('/dashboard/overdue', authenticate, dashboardController.overdueSummary)
+router.get('/dashboard/top-customers', authenticate, requireAdmin, dashboardController.topCustomers)
+router.get('/dashboard/overdue', authenticate, requireAdmin, dashboardController.overdueSummary)
 
 // ─── Executive Dashboard ──────────────────────────────────────────────────────
-router.get('/executive/dashboard', authenticate, async (_req, res, next) => {
+router.get('/executive/dashboard', authenticate, requireAdmin, async (_req, res, next) => {
   try {
     const data = await dashboardRepo.getExecutiveDashboard()
     res.json({ success: true, data })
@@ -142,7 +142,7 @@ router.get('/bad-debts', authenticate, badDebtController.list)
 router.put('/bad-debts/:id/recover', authenticate, badDebtController.recover)
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
-router.get('/reports/monthly', authenticate, async (req, res, next) => {
+router.get('/reports/monthly', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const rows = await db('monthly_snapshots').orderBy('snapshot_month', 'desc').limit(12)
     res.json({ success: true, data: rows })
@@ -151,7 +151,7 @@ router.get('/reports/monthly', authenticate, async (req, res, next) => {
   }
 })
 
-router.get('/reports/profit', authenticate, async (req, res, next) => {
+router.get('/reports/profit', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const from = req.query.from as string ?? new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]
     const to = req.query.to as string ?? new Date().toISOString().split('T')[0]
@@ -171,7 +171,7 @@ router.get('/reports/profit', authenticate, async (req, res, next) => {
   }
 })
 
-router.get('/reports/monthly-stats', authenticate, async (req, res, next) => {
+router.get('/reports/monthly-stats', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const year = parseInt((req.query.year as string) ?? String(new Date().getFullYear()))
     const from = `${year}-01-01`
@@ -290,7 +290,7 @@ router.post('/reports/snapshots/generate', authenticate, requireAdmin, async (_r
 })
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
-router.get('/settings', authenticate, async (_req, res, next) => {
+router.get('/settings', authenticate, requireAdmin, async (_req, res, next) => {
   try {
     const rows = await db('settings')
     const settings: Record<string, string> = {}
@@ -301,7 +301,7 @@ router.get('/settings', authenticate, async (_req, res, next) => {
   }
 })
 
-router.put('/settings', authenticate, async (req, res, next) => {
+router.put('/settings', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const updates = req.body as Record<string, string>
     for (const [key, value] of Object.entries(updates)) {
@@ -314,7 +314,7 @@ router.put('/settings', authenticate, async (req, res, next) => {
 })
 
 // ─── Cash Management ──────────────────────────────────────────────────────────
-router.get('/cash/daily', authenticate, async (req, res, next) => {
+router.get('/cash/daily', authenticate, requireAdmin, async (req, res, next) => {
   try {
     const today = new Date().toISOString().split('T')[0]
     const from = (req.query.from as string) ?? (req.query.date as string) ?? today
@@ -349,7 +349,7 @@ router.get('/cash/daily', authenticate, async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-router.get('/cash/balance', authenticate, async (_req, res, next) => {
+router.get('/cash/balance', authenticate, requireAdmin, async (_req, res, next) => {
   try {
     const last = await db('cash_transactions').select('balance_after').orderBy('id', 'desc').first()
     const recent = await db('cash_transactions')
@@ -360,7 +360,7 @@ router.get('/cash/balance', authenticate, async (_req, res, next) => {
   } catch (err) { next(err) }
 })
 
-router.post('/cash/set-balance', authenticate, async (req: any, res, next) => {
+router.post('/cash/set-balance', authenticate, requireAdmin, async (req: any, res, next) => {
   try {
     const { targetBalance, description } = req.body as { targetBalance: number; description?: string }
     if (targetBalance === undefined || targetBalance < 0) {
@@ -393,7 +393,7 @@ router.post('/cash/set-balance', authenticate, async (req: any, res, next) => {
   } catch (err) { next(err) }
 })
 
-router.post('/cash/adjust', authenticate, async (req: any, res, next) => {
+router.post('/cash/adjust', authenticate, requireAdmin, async (req: any, res, next) => {
   try {
     const { type, amount, description, txnDate } = req.body as {
       type: 'capital_in' | 'capital_out' | 'expense'
