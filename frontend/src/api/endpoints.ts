@@ -96,7 +96,8 @@ export const userApi = {
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 export const auditLogApi = {
-  list: (page = 1, limit = 50) => api.get('/audit-logs', { params: { page, limit } }),
+  list: (page = 1, limit = 50, dateFrom?: string, dateTo?: string) =>
+    api.get('/audit-logs', { params: { page, limit, dateFrom, dateTo } }),
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

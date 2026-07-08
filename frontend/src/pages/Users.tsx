@@ -13,6 +13,8 @@ interface AuditLogItem {
   created_at: string
   user_full_name: string | null
   username: string | null
+  target_ref: string | null
+  target_name: string | null
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -33,6 +35,7 @@ const ACTION_LABELS: Record<string, string> = {
   CASH_SET_BALANCE: 'ตั้งยอดเงินสด',
   CASH_ADJUST: 'ปรับยอดเงินสด',
   UPDATE_SETTINGS: 'แก้ไขตั้งค่าระบบ',
+  RECEIVE_PAYMENT: 'รับชำระเงิน',
 }
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -54,6 +57,32 @@ const EMPTY_CREATE = { username: '', password: '', fullName: '', role: 'staff' a
 function formatDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('th-TH', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function humanizeKey(key: string) {
+  return key
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/^./, (c) => c.toUpperCase())
+}
+
+function formatVal(v: unknown) {
+  if (v === undefined || v === null) return 'ไม่มีข้อมูล'
+  if (typeof v === 'boolean') return v ? 'ใช่' : 'ไม่ใช่'
+  return String(v)
+}
+
+interface DiffRow { key: string; oldVal: unknown; newVal: unknown }
+
+function buildDiffRows(oldData: Record<string, unknown> | null, newData: Record<string, unknown> | null): DiffRow[] {
+  const keys = new Set([...Object.keys(oldData ?? {}), ...Object.keys(newData ?? {})])
+  const rows: DiffRow[] = []
+  keys.forEach((key) => {
+    const oldVal = oldData ? oldData[key] : undefined
+    const newVal = newData ? newData[key] : undefined
+    if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) rows.push({ key, oldVal, newVal })
+  })
+  return rows
 }
 
 export default function Users() {
@@ -81,6 +110,8 @@ export default function Users() {
   const [auditPage, setAuditPage]     = useState(1)
   const [auditLoading, setAuditLoading] = useState(true)
   const [expandedLogId, setExpandedLogId] = useState<number | null>(null)
+  const [auditDateFrom, setAuditDateFrom] = useState('')
+  const [auditDateTo, setAuditDateTo] = useState('')
 
   const load = async () => {
     try {
@@ -91,15 +122,21 @@ export default function Users() {
     finally { setLoading(false) }
   }
 
-  const loadAuditLogs = async (page: number) => {
+  const loadAuditLogs = async (page: number, dateFrom = auditDateFrom, dateTo = auditDateTo) => {
     try {
       setAuditLoading(true)
-      const res = await auditLogApi.list(page, 50)
+      const res = await auditLogApi.list(page, 50, dateFrom || undefined, dateTo || undefined)
       setAuditLogs((prev) => (page === 1 ? res.data.data : [...prev, ...res.data.data]))
       setAuditTotal(res.data.meta?.total ?? 0)
       setAuditPage(page)
     } catch { /* silent */ }
     finally { setAuditLoading(false) }
+  }
+
+  const clearAuditDateFilter = () => {
+    setAuditDateFrom('')
+    setAuditDateTo('')
+    loadAuditLogs(1, '', '')
   }
 
   useEffect(() => { load(); loadAuditLogs(1) }, [])
@@ -251,11 +288,26 @@ export default function Users() {
 
       {/* Audit Log */}
       <div className="card p-0 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
-          <History size={16} className="text-gray-400" />
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">ประวัติการใช้งาน</h2>
-            <p className="text-xs text-gray-400">บันทึกการจัดการข้อมูลสำคัญในระบบ</p>
+        <div className="px-5 py-4 border-b border-gray-50 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <History size={16} className="text-gray-400" />
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">ประวัติการใช้งาน</h2>
+              <p className="text-xs text-gray-400">บันทึกการจัดการข้อมูลสำคัญในระบบ</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-400">จาก</span>
+            <input type="date" value={auditDateFrom}
+              onChange={(e) => { setAuditDateFrom(e.target.value); loadAuditLogs(1, e.target.value, auditDateTo) }}
+              className="border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200" />
+            <span className="text-gray-400">ถึง</span>
+            <input type="date" value={auditDateTo}
+              onChange={(e) => { setAuditDateTo(e.target.value); loadAuditLogs(1, auditDateFrom, e.target.value) }}
+              className="border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200" />
+            {(auditDateFrom || auditDateTo) && (
+              <button onClick={clearAuditDateFilter} className="text-blue-600 hover:text-blue-700 font-medium">ล้าง</button>
+            )}
           </div>
         </div>
         <table className="w-full">
@@ -275,7 +327,7 @@ export default function Users() {
             ) : auditLogs.map((log) => (
               <Fragment key={log.id}>
                 <tr
-                  className="border-t border-gray-50 hover:bg-gray-50/50 cursor-pointer"
+                  className="border-t border-gray-50 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/40 cursor-pointer"
                   onClick={() => setExpandedLogId((id) => (id === log.id ? null : log.id))}
                 >
                   <td className="table-cell text-xs text-gray-500">{formatDate(log.created_at)}</td>
@@ -288,27 +340,46 @@ export default function Users() {
                   <td className="table-cell text-xs text-gray-500">
                     <div className="flex items-center gap-1.5">
                       <ChevronDown size={13} className={`transition-transform ${expandedLogId === log.id ? 'rotate-180' : ''}`} />
-                      {ENTITY_LABELS[log.entity_type] ?? log.entity_type}{log.entity_id ? ` #${log.entity_id}` : ''}
+                      <span>
+                        {ENTITY_LABELS[log.entity_type] ?? log.entity_type}
+                        {log.target_name && <span className="text-gray-700 dark:text-slate-300"> · {log.target_name}</span>}
+                        {log.target_ref && <span className="text-gray-400"> ({log.target_ref})</span>}
+                        {!log.target_name && !log.target_ref && log.entity_id ? ` #${log.entity_id}` : ''}
+                      </span>
                     </div>
                   </td>
                 </tr>
                 {expandedLogId === log.id && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={4} className="px-5 py-3">
-                      <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div>
-                          <p className="font-semibold text-gray-500 mb-1">ก่อนแก้ไข</p>
-                          <pre className="whitespace-pre-wrap break-all text-gray-600">
-                            {log.old_data ? JSON.stringify(log.old_data, null, 2) : '—'}
-                          </pre>
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-500 mb-1">หลังแก้ไข</p>
-                          <pre className="whitespace-pre-wrap break-all text-gray-600">
-                            {log.new_data ? JSON.stringify(log.new_data, null, 2) : '—'}
-                          </pre>
-                        </div>
-                      </div>
+                  <tr className="bg-gray-50 dark:bg-slate-900">
+                    <td colSpan={4} className="px-5 py-4">
+                      {(() => {
+                        const rows = buildDiffRows(log.old_data, log.new_data)
+                        if (rows.length === 0) {
+                          return <p className="text-xs text-gray-400 dark:text-slate-500">ไม่มีรายละเอียดการเปลี่ยนแปลง</p>
+                        }
+                        return (
+                          <div className="space-y-2">
+                            {rows.map((r) => (
+                              <div key={r.key} className="flex items-start gap-3 text-xs">
+                                <span className="font-semibold text-gray-500 dark:text-slate-400 w-36 flex-shrink-0">
+                                  {humanizeKey(r.key)}
+                                </span>
+                                {r.oldVal === undefined ? (
+                                  <span className="text-gray-700 dark:text-slate-200">{formatVal(r.newVal)}</span>
+                                ) : r.newVal === undefined ? (
+                                  <span className="text-red-600 dark:text-red-400 line-through">{formatVal(r.oldVal)}</span>
+                                ) : (
+                                  <span className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-red-500 dark:text-red-400">{formatVal(r.oldVal)}</span>
+                                    <span className="text-gray-400 dark:text-slate-500">→</span>
+                                    <span className="text-green-600 dark:text-green-400 font-medium">{formatVal(r.newVal)}</span>
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
                     </td>
                   </tr>
                 )}

@@ -466,18 +466,40 @@ router.get('/audit-logs', authenticate, requireAdmin, async (req, res, next) => 
   try {
     const page = Number(req.query.page ?? 1)
     const limit = Number(req.query.limit ?? 50)
+    const dateFrom = req.query.dateFrom as string | undefined
+    const dateTo = req.query.dateTo as string | undefined
+
+    const applyDateFilter = (q: any) => {
+      if (dateFrom) q = q.whereRaw('a.created_at::date >= ?::date', [dateFrom])
+      if (dateTo) q = q.whereRaw('a.created_at::date <= ?::date', [dateTo])
+      return q
+    }
+
     const [rows, totalRow] = await Promise.all([
-      db('audit_logs as a')
-        .leftJoin('users as u', 'u.id', 'a.user_id')
-        .select(
-          'a.id', 'a.action', 'a.entity_type', 'a.entity_id',
-          'a.old_data', 'a.new_data', 'a.created_at',
-          'u.full_name as user_full_name', 'u.username',
-        )
+      applyDateFilter(
+        db('audit_logs as a')
+          .leftJoin('users as u', 'u.id', 'a.user_id')
+          // Resolve "who/what this action was about" — entity_id is polymorphic
+          // (loan/customer/user/bad_debt id), so each join only matches its own entity_type.
+          .joinRaw("LEFT JOIN loans l ON a.entity_type = 'loan' AND l.id = a.entity_id")
+          .joinRaw("LEFT JOIN customers lc ON lc.id = l.customer_id")
+          .joinRaw("LEFT JOIN customers cust ON a.entity_type = 'customer' AND cust.id = a.entity_id")
+          .joinRaw("LEFT JOIN users au ON a.entity_type = 'user' AND au.id = a.entity_id")
+          .joinRaw("LEFT JOIN bad_debts bd ON a.entity_type = 'bad_debt' AND bd.id = a.entity_id")
+          .joinRaw('LEFT JOIN loans bdl ON bdl.id = bd.loan_id')
+          .joinRaw('LEFT JOIN customers bdc ON bdc.id = bdl.customer_id')
+          .select(
+            'a.id', 'a.action', 'a.entity_type', 'a.entity_id',
+            'a.old_data', 'a.new_data', 'a.created_at',
+            'u.full_name as user_full_name', 'u.username',
+            db.raw("COALESCE(l.loan_number, bdl.loan_number, cust.code, au.username) as target_ref"),
+            db.raw("COALESCE(lc.first_name || ' ' || lc.last_name, bdc.first_name || ' ' || bdc.last_name, cust.first_name || ' ' || cust.last_name, au.full_name) as target_name"),
+          ),
+      )
         .orderBy('a.id', 'desc')
         .limit(limit)
         .offset((page - 1) * limit),
-      db('audit_logs').count('id as c').first(),
+      applyDateFilter(db('audit_logs as a')).count('a.id as c').first(),
     ])
     res.json({
       success: true,

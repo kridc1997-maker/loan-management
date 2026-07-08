@@ -320,6 +320,17 @@ export const loanService = {
         created_by: createdBy,
       })
 
+      await trx('audit_logs').insert({
+        user_id: createdBy,
+        action: 'RECEIVE_PAYMENT',
+        entity_type: 'loan',
+        entity_id: loanId,
+        new_data: JSON.stringify({
+          amount, principalPaid, interestPaid, paymentType, paymentMethod,
+          paymentNumber, installmentId: installmentId ?? null,
+        }),
+      })
+
       return { payment }
     })
   },
