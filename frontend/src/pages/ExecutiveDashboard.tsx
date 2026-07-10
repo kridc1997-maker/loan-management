@@ -272,7 +272,7 @@ export default function ExecutiveDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       <div>
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Executive Summary</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {/* Card 1: เงินสดคงเหลือ */}
           <KpiCard
             title="เงินสดคงเหลือ"
@@ -294,7 +294,7 @@ export default function ExecutiveDashboard() {
             sub={`${kpi.activeLoansCount} สัญญา Active`}
             icon={<BadgeDollarSign size={18} className="text-purple-600" />}
             iconBg="bg-purple-50"
-            onClick={() => navigate('/loans')}
+            onClick={() => navigate('/loans')} 
           />
 
           {/* Card 3: ทุนรวม (Total Asset) */}
