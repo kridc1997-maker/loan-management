@@ -306,11 +306,11 @@ export default function ExecutiveDashboard() {
             iconBg="bg-orange-50"
           />
 
-          {/* Card 4: ยอดรับคืนทั้งหมด */}
+          {/* Card 4: กำไรคาดการณ์ */}
           <KpiCard
-            title="ยอดรับคืนทั้งหมด"
-            value={formatCurrency(kpi.cashOnHand + kpi.outstandingPrincipal + kpi.expectedProfit)}
-            sub="เงินสด + เงินต้นคงค้าง + กำไรคาดการณ์"
+            title="กำไรคาดการณ์"
+            value={formatCurrency(kpi.expectedProfit)}
+            sub="ดอกเบี้ยคงเหลือจากสัญญาที่ยังไม่ปิด"
             icon={<PiggyBank size={18} className="text-indigo-600" />}
             iconBg="bg-indigo-50"
           />
