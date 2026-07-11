@@ -334,6 +334,13 @@ export interface ExecPortfolioGrowth {
   cumulativeProfit: number
 }
 
+export interface ExecTotalAssetPoint {
+  date: string
+  cashOnHand: number
+  outstandingPrincipal: number
+  totalAsset: number
+}
+
 export interface ExecTopCustomer {
   customerId: number
   customerName: string
@@ -363,6 +370,7 @@ export interface ExecutiveDashboardData {
   portfolioByType: ExecPortfolioItem[]
   revenueTrend: ExecRevenueTrend[]
   portfolioGrowth: ExecPortfolioGrowth[]
+  totalAssetTrend: ExecTotalAssetPoint[]
   topCustomers: ExecTopCustomer[]
   riskMonitor: ExecRiskItem[]
 }

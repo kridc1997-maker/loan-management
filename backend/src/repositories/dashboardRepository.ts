@@ -211,6 +211,7 @@ export const dashboardRepo = {
       expenseWeekRow,
       profitYesterdayRow,
       expenseTodayRow,
+      totalAssetTrendRaw,
     ] = await Promise.all([
       db('cash_transactions').select('balance_after').orderBy('id', 'desc').first(),
       db('cash_transactions')
@@ -336,6 +337,29 @@ export const dashboardRepo = {
         .whereIn('txn_type', ['expense', 'capital_out', 'capital_in'])
         .whereRaw('txn_date::date = ?::date', [today])
         .first(),
+      // Reconstruct daily cash-on-hand (last ledger balance on/before each day) and outstanding
+      // principal (cumulative disbursed minus cumulative principal collected as of each day,
+      // restricted to loans currently active/overdue — same filter as the live "เงินต้นคงค้าง"
+      // KPI above, so today's last point matches that card exactly) — works retroactively over
+      // real history without needing a daily-snapshot job.
+      db.raw(`
+        SELECT
+          to_char(d.date, 'YYYY-MM-DD') AS date,
+          COALESCE((
+            SELECT ct.balance_after FROM cash_transactions ct
+            WHERE ct.txn_date::date <= d.date
+            ORDER BY ct.id DESC LIMIT 1
+          ), 0) AS cash_on_hand,
+          COALESCE((
+            SELECT SUM(l.principal_amount) FROM loans l
+            WHERE l.issued_date::date <= d.date AND l.status IN ('active', 'overdue')
+          ), 0) - COALESCE((
+            SELECT SUM(p.principal_paid) FROM payments p JOIN loans l2 ON l2.id = p.loan_id
+            WHERE p.payment_date::date <= d.date AND l2.status IN ('active', 'overdue')
+          ), 0) AS outstanding_principal
+        FROM generate_series(CURRENT_DATE - INTERVAL '29 days', CURRENT_DATE, INTERVAL '1 day') AS d(date)
+        ORDER BY d.date
+      `),
     ])
 
     const [repeatRaw, riskMonitorRaw, topCustomersRaw] = await Promise.all([
@@ -467,6 +491,13 @@ export const dashboardRepo = {
     const badDebtScore = badDebtCount === 0 ? 20 : nplRate < 0.05 ? 10 : 0
     const healthScore = nplScore + overdueScore + activeScore + badDebtScore
 
+    // Total asset trend (30 days)
+    const totalAssetTrend = ((totalAssetTrendRaw as any).rows ?? []).map((r: any) => {
+      const cashOnHand = Number(r.cash_on_hand)
+      const outstandingPrincipal = Number(r.outstanding_principal)
+      return { date: r.date, cashOnHand, outstandingPrincipal, totalAsset: cashOnHand + outstandingPrincipal }
+    })
+
     // Revenue trend (12 months)
     const revenueTrendMap: Record<string, number> = {}
     for (const r of revenueTrendRows) { revenueTrendMap[String(r.month)] = Number(r.interest) }
@@ -524,6 +555,7 @@ export const dashboardRepo = {
       })),
       revenueTrend,
       portfolioGrowth,
+      totalAssetTrend,
       topCustomers: ((topCustomersRaw as any).rows ?? []).map((r: any) => ({
         customerId: r.customer_id,
         customerName: r.customer_name,

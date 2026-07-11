@@ -219,7 +219,7 @@ export default function ExecutiveDashboard() {
     )
   }
 
-  const { kpi, cashForecast, portfolioByType, revenueTrend, portfolioGrowth, topCustomers, riskMonitor } = data
+  const { kpi, cashForecast, portfolioByType, revenueTrend, portfolioGrowth, totalAssetTrend, topCustomers, riskMonitor } = data
   const insights = generateInsights(kpi)
 
   // cumulativeProfit from monthly_snapshots is always 0 (table unpopulated).
@@ -814,6 +814,47 @@ export default function ExecutiveDashboard() {
             </LineChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SECTION 7.5 — Total Asset Trend (30 วัน)
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">แนวโน้มทุนรวม (Total Asset)</h2>
+            <p className="text-xs text-gray-500 mt-0.5">เงินสด + เงินต้นคงค้าง ย้อนหลัง 30 วัน</p>
+          </div>
+          <Landmark size={15} className="text-gray-400" />
+        </div>
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={totalAssetTrend}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v) => v.slice(5).replace('-', '/')}
+            />
+            <YAxis
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
+            />
+            <Tooltip content={<ChartTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="totalAsset"
+              name="ทุนรวม"
+              stroke="#f97316"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
