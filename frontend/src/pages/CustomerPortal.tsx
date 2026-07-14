@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { AlertCircle, Sun, Moon } from 'lucide-react'
 import StatusBadge from '../components/ui/StatusBadge'
-import { formatCurrency, formatDate, isInstallmentBased } from '../utils/financial'
+import { formatCurrency, formatDate, isInstallmentBased, toInputDate, todayInputDate } from '../utils/financial'
 import { portalApi } from '../api/endpoints'
 import { useAppStore } from '../stores/appStore'
 import type { PortalData } from '../types'
@@ -72,8 +72,16 @@ export default function CustomerPortal() {
                 {data.loans.map((loan) => {
                   const paid = loan.paidPrincipal + loan.paidInterest
                   const remaining = Math.max(0, loan.totalAmount - paid)
+                  const relevantDueDate = (isInstallmentBased(loan.loanType) ? loan.nextInstallmentDueDate : null) ?? loan.dueDate
+                  const isOverdue = loan.status === 'overdue'
+                  const isDueToday = !isOverdue && toInputDate(relevantDueDate) === todayInputDate()
+                  const cardClass = isOverdue
+                    ? 'bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900'
+                    : isDueToday
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900'
+                    : 'bg-white dark:bg-slate-800'
                   return (
-                    <div key={loan.loanNumber} className="bg-white dark:bg-slate-800 rounded-2xl shadow p-5 space-y-3">
+                    <div key={loan.loanNumber} className={`${cardClass} rounded-2xl shadow p-5 space-y-3`}>
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2 flex-wrap mb-1">
