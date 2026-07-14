@@ -38,6 +38,7 @@ export interface CustomerRow {
   risk_level: RiskLevel
   note?: string
   is_active: boolean
+  portal_token?: string | null
   created_by?: number
   created_at: Date
   updated_at: Date

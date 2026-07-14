@@ -17,6 +17,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Users from './pages/Users'
 import ExecutiveDashboard from './pages/ExecutiveDashboard'
+import CustomerPortal from './pages/CustomerPortal'
 import { useAuthStore } from './stores/authStore'
 
 // Simple auth guard — shows Login if no token
@@ -37,6 +38,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/portal/:token" element={<CustomerPortal />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/customers" element={<ProtectedRoute><CustomerList /></ProtectedRoute>} />
         <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />

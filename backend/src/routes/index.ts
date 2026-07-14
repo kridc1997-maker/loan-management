@@ -44,6 +44,46 @@ router.get('/customers/:id', authenticate, customerController.get)
 router.put('/customers/:id', authenticate, customerController.update)
 router.get('/customers/:id/loans', authenticate, customerController.loans)
 router.get('/customers/:id/payment-stats', authenticate, customerController.paymentStats)
+router.post('/customers/:id/portal-link', authenticate, customerController.generatePortalLink)
+
+// ─── Customer Portal (PUBLIC — token-based, no login required) ────────────────
+// Deliberately no `authenticate` here: the token itself (not a session) is the
+// access key. Only ever look up by portal_token, never by customer id, so an
+// edited/guessed URL can only ever 404 — it cannot reach another customer's data.
+router.get('/portal/:token', async (req, res, next) => {
+  try {
+    const customer = await db('customers').where({ portal_token: req.params.token }).first()
+    if (!customer) throw new AppError(404, 'ไม่พบข้อมูล')
+
+    const loans = await db('loans')
+      .where({ customer_id: customer.id })
+      .whereIn('status', ['active', 'overdue'])
+      .orderBy('issued_date', 'desc')
+
+    res.json({
+      success: true,
+      data: {
+        customerName: `${customer.first_name} ${customer.last_name}`,
+        loans: loans.map((l) => ({
+          loanNumber: l.loan_number,
+          loanType: l.loan_type,
+          status: l.status,
+          principalAmount: Number(l.principal_amount),
+          interestAmount: Number(l.interest_amount),
+          totalAmount: Number(l.total_amount),
+          issuedDate: l.issued_date,
+          dueDate: l.due_date,
+          totalInstallments: l.total_installments,
+          paidInstallments: l.paid_installments,
+          paidPrincipal: Number(l.paid_principal),
+          paidInterest: Number(l.paid_interest),
+        })),
+      },
+    })
+  } catch (err) {
+    next(err)
+  }
+})
 
 // ─── Loans ────────────────────────────────────────────────────────────────────
 router.get('/loans', authenticate, loanController.list)

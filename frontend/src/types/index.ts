@@ -27,8 +27,29 @@ export interface Customer {
   totalOutstanding: number
   creditScore: number | null
   creditLabel: string | null
+  portalToken: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface PortalLoan {
+  loanNumber: string
+  loanType: LoanType
+  status: LoanStatus
+  principalAmount: number
+  interestAmount: number
+  totalAmount: number
+  issuedDate: string
+  dueDate: string
+  totalInstallments: number
+  paidInstallments: number
+  paidPrincipal: number
+  paidInterest: number
+}
+
+export interface PortalData {
+  customerName: string
+  loans: PortalLoan[]
 }
 
 export interface CustomerForm {

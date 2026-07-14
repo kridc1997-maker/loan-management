@@ -32,6 +32,12 @@ export const customerApi = {
   update: (id: number, data: Partial<CustomerForm>) => api.put(`/customers/${id}`, data),
   loans: (id: number) => api.get(`/customers/${id}/loans`),
   paymentStats: (id: number) => api.get(`/customers/${id}/payment-stats`),
+  generatePortalLink: (id: number) => api.post(`/customers/${id}/portal-link`),
+}
+
+// ─── Customer Portal (public, token-based) ─────────────────────────────────────
+export const portalApi = {
+  get: (token: string) => api.get(`/portal/${token}`),
 }
 
 // ─── Loans ────────────────────────────────────────────────────────────────────

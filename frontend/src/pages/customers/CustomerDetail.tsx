@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle, Pencil } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle, Pencil, Link as LinkIcon } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
 import Modal from '../../components/ui/Modal'
 import LoanConfirmModal, { needsLoanConfirm } from '../../components/ui/LoanConfirmModal'
@@ -95,6 +95,25 @@ export default function CustomerDetail() {
   const setField = (k: keyof typeof editForm, v: string) =>
     setEditForm((f) => ({ ...f, [k]: v }))
 
+  const [generatingLink, setGeneratingLink] = useState(false)
+
+  const handleGeneratePortalLink = () => {
+    if (!customer || generatingLink) return
+    setGeneratingLink(true)
+    customerApi.generatePortalLink(customer.id).then((res) => {
+      const token = res.data.data.portalToken
+      const link = `${window.location.origin}/portal/${token}`
+      setCustomer((c) => (c ? { ...c, portalToken: token } : c))
+      navigator.clipboard?.writeText(link).then(() => {
+        addToast('success', 'คัดลอกลิงก์สำหรับลูกค้าแล้ว')
+      }).catch(() => {
+        addToast('success', `สร้างลิงก์แล้ว: ${link}`)
+      })
+    }).catch(() => {
+      addToast('error', 'เกิดข้อผิดพลาด ไม่สามารถสร้างลิงก์ได้')
+    }).finally(() => setGeneratingLink(false))
+  }
+
   useEffect(() => {
     if (!id) return
     Promise.all([
@@ -157,6 +176,14 @@ export default function CustomerDetail() {
           <div className="flex items-center gap-2">
             <button onClick={openEdit} className="btn-secondary">
               <Pencil size={15} /> แก้ไข
+            </button>
+            <button
+              onClick={handleGeneratePortalLink}
+              disabled={generatingLink}
+              title={customer.portalToken ? 'สร้างลิงก์ใหม่จะทำให้ลิงก์เดิมใช้ไม่ได้' : undefined}
+              className="btn-secondary disabled:opacity-50"
+            >
+              <LinkIcon size={15} /> {generatingLink ? 'กำลังสร้าง...' : customer.portalToken ? 'สร้างลิงก์ใหม่ (ยกเลิกลิงก์เดิม)' : 'สร้างลิงก์ลูกค้า'}
             </button>
             {!loanCreationPaused && (
               <button

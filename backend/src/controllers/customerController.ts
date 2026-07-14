@@ -1,7 +1,7 @@
 import type { Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { customerRepo, getCreditLabel } from '../repositories/customerRepository'
-import { generateCustomerCode } from '../utils/helpers'
+import { generateCustomerCode, generatePortalToken } from '../utils/helpers'
 import { AppError } from '../middleware/errorHandler'
 import { logAudit } from '../utils/auditLog'
 import type { AuthRequest } from '../types'
@@ -126,6 +126,28 @@ export const customerController = {
     }
   },
 
+  async generatePortalLink(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = Number(req.params.id)
+      const existing = await customerRepo.findById(id)
+      if (!existing) throw new AppError(404, 'ไม่พบลูกค้า')
+
+      const token = generatePortalToken()
+      await customerRepo.update(id, { portal_token: token })
+
+      await logAudit({
+        userId: req.user?.userId,
+        action: 'GENERATE_PORTAL_LINK',
+        entityType: 'customer',
+        entityId: id,
+      })
+
+      res.json({ success: true, data: { portalToken: token } })
+    } catch (err) {
+      next(err)
+    }
+  },
+
   async paymentStats(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const stats = await customerRepo.getPaymentStats(Number(req.params.id))
@@ -191,6 +213,7 @@ function camelizeCustomer(r: any) {
     address: r.address, occupation: r.occupation,
     lineId: r.line_id, riskLevel: r.risk_level,
     note: r.note, isActive: r.is_active,
+    portalToken: r.portal_token ?? null,
     activeLoansCount: Number(r.active_loans_count ?? 0),
     totalOutstanding: Number(r.total_outstanding ?? 0),
     creditScore,

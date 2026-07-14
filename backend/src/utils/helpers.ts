@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import db from '../db/connection'
 import type { LoanType } from '../types'
 
@@ -56,6 +57,10 @@ export const generateCustomerCode = async (): Promise<string> => {
   const seq = last ? String(last.id + 1).padStart(4, '0') : '0001'
   return `CUS-${seq}`
 }
+
+/** 192-bit random token for the customer self-service portal link — opaque and
+ *  unguessable, never derived from the customer's numeric id. */
+export const generatePortalToken = (): string => crypto.randomBytes(24).toString('hex')
 
 // ─── Date Utilities ────────────────────────────────────────────────────────────
 
