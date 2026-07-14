@@ -58,7 +58,7 @@ router.get('/portal/:token', async (req, res, next) => {
     const loans = await db('loans')
       .where({ customer_id: customer.id })
       .whereIn('status', ['active', 'overdue'])
-      .orderBy('issued_date', 'desc')
+      .orderBy('due_date', 'asc')
 
     res.json({
       success: true,

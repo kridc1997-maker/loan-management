@@ -96,22 +96,30 @@ export default function CustomerDetail() {
     setEditForm((f) => ({ ...f, [k]: v }))
 
   const [generatingLink, setGeneratingLink] = useState(false)
+  const [showPortalModal, setShowPortalModal] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const portalLink = customer?.portalToken ? `${window.location.origin}/portal/${customer.portalToken}` : null
 
   const handleGeneratePortalLink = () => {
     if (!customer || generatingLink) return
     setGeneratingLink(true)
     customerApi.generatePortalLink(customer.id).then((res) => {
-      const token = res.data.data.portalToken
-      const link = `${window.location.origin}/portal/${token}`
-      setCustomer((c) => (c ? { ...c, portalToken: token } : c))
-      navigator.clipboard?.writeText(link).then(() => {
-        addToast('success', 'คัดลอกลิงก์สำหรับลูกค้าแล้ว')
-      }).catch(() => {
-        addToast('success', `สร้างลิงก์แล้ว: ${link}`)
-      })
+      setCustomer((c) => (c ? { ...c, portalToken: res.data.data.portalToken } : c))
+      setLinkCopied(false)
     }).catch(() => {
       addToast('error', 'เกิดข้อผิดพลาด ไม่สามารถสร้างลิงก์ได้')
     }).finally(() => setGeneratingLink(false))
+  }
+
+  const handleCopyPortalLink = () => {
+    if (!portalLink) return
+    navigator.clipboard?.writeText(portalLink).then(() => {
+      setLinkCopied(true)
+      addToast('success', 'คัดลอกลิงก์แล้ว')
+    }).catch(() => {
+      addToast('error', 'คัดลอกไม่สำเร็จ กรุณาคัดลอกจากช่องด้านบนเอง')
+    })
   }
 
   useEffect(() => {
@@ -177,13 +185,8 @@ export default function CustomerDetail() {
             <button onClick={openEdit} className="btn-secondary">
               <Pencil size={15} /> แก้ไข
             </button>
-            <button
-              onClick={handleGeneratePortalLink}
-              disabled={generatingLink}
-              title={customer.portalToken ? 'สร้างลิงก์ใหม่จะทำให้ลิงก์เดิมใช้ไม่ได้' : undefined}
-              className="btn-secondary disabled:opacity-50"
-            >
-              <LinkIcon size={15} /> {generatingLink ? 'กำลังสร้าง...' : customer.portalToken ? 'สร้างลิงก์ใหม่ (ยกเลิกลิงก์เดิม)' : 'สร้างลิงก์ลูกค้า'}
+            <button onClick={() => setShowPortalModal(true)} className="btn-secondary">
+              <LinkIcon size={15} /> ลิงก์ลูกค้า
             </button>
             {!loanCreationPaused && (
               <button
@@ -381,6 +384,40 @@ export default function CustomerDetail() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal open={showPortalModal} onClose={() => setShowPortalModal(false)} title="ลิงก์สำหรับลูกค้า" size="md">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            ลิงก์นี้ให้ลูกค้าดูข้อมูลสัญญาที่กำลังใช้งานอยู่ของตัวเอง โดยไม่ต้อง login
+          </p>
+          {portalLink ? (
+            <>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={portalLink}
+                  onFocus={(e) => e.target.select()}
+                  className="input flex-1 text-xs font-mono"
+                />
+                <button onClick={handleCopyPortalLink} className="btn-primary text-xs px-3 flex-shrink-0">
+                  {linkCopied ? 'คัดลอกแล้ว' : 'คัดลอก'}
+                </button>
+              </div>
+              <button
+                onClick={handleGeneratePortalLink}
+                disabled={generatingLink}
+                className="text-xs text-red-600 hover:text-red-700 disabled:opacity-50"
+              >
+                {generatingLink ? 'กำลังสร้าง...' : 'สร้างลิงก์ใหม่ (ลิงก์เดิมด้านบนจะใช้ไม่ได้ทันที)'}
+              </button>
+            </>
+          ) : (
+            <button onClick={handleGeneratePortalLink} disabled={generatingLink} className="btn-primary w-full justify-center">
+              {generatingLink ? 'กำลังสร้าง...' : 'สร้างลิงก์'}
+            </button>
+          )}
+        </div>
       </Modal>
 
       {paymentStats && paymentStats.lateCount > 0 && (
