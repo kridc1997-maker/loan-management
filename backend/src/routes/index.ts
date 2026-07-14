@@ -60,6 +60,20 @@ router.get('/portal/:token', async (req, res, next) => {
       .whereIn('status', ['active', 'overdue'])
       .orderBy('due_date', 'asc')
 
+    const loanIds = loans.map((l) => l.id)
+    const nextInstallmentByLoanId = new Map<number, string>()
+    if (loanIds.length) {
+      const pendingInstallments = await db('loan_installments')
+        .whereIn('loan_id', loanIds)
+        .whereIn('status', ['pending', 'partial', 'overdue'])
+        .orderBy('due_date', 'asc')
+      for (const inst of pendingInstallments) {
+        if (!nextInstallmentByLoanId.has(inst.loan_id)) {
+          nextInstallmentByLoanId.set(inst.loan_id, inst.due_date)
+        }
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -73,6 +87,8 @@ router.get('/portal/:token', async (req, res, next) => {
           totalAmount: Number(l.total_amount),
           issuedDate: l.issued_date,
           dueDate: l.due_date,
+          termDays: l.term_days != null ? Number(l.term_days) : null,
+          nextInstallmentDueDate: nextInstallmentByLoanId.get(l.id) ?? null,
           totalInstallments: l.total_installments,
           paidInstallments: l.paid_installments,
           paidPrincipal: Number(l.paid_principal),

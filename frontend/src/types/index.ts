@@ -41,6 +41,8 @@ export interface PortalLoan {
   totalAmount: number
   issuedDate: string
   dueDate: string
+  termDays: number | null
+  nextInstallmentDueDate: string | null
   totalInstallments: number
   paidInstallments: number
   paidPrincipal: number

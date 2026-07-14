@@ -270,7 +270,7 @@ export default function ReceivePayment() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-3 text-sm">
+            <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <p className="text-xs text-gray-500">เงินต้น</p>
                 <p className="font-semibold text-gray-900">{formatCurrency(selectedLoan.principalAmount)}</p>
@@ -279,12 +279,14 @@ export default function ReceivePayment() {
                 <p className="text-xs text-gray-500">ดอกเบี้ย</p>
                 <p className="font-semibold text-green-700">{formatCurrency(selectedLoan.interestAmount)}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-500">จำนวนวันที่กู้</p>
-                <p className="font-semibold text-gray-900">
-                  {selectedLoan.termDays ?? Math.round((new Date(selectedLoan.dueDate).getTime() - new Date(selectedLoan.issuedDate).getTime()) / 86400000)} วัน
-                </p>
-              </div>
+              {selectedLoan.loanType === 'single' && (
+                <div>
+                  <p className="text-xs text-gray-500">จำนวนวันที่กู้</p>
+                  <p className="font-semibold text-gray-900">
+                    {selectedLoan.termDays ?? Math.round((new Date(selectedLoan.dueDate).getTime() - new Date(selectedLoan.issuedDate).getTime()) / 86400000)} วัน
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-gray-500">ครบกำหนด</p>
                 <p className="font-semibold text-gray-900">{formatDate(selectedLoan.dueDate)}</p>

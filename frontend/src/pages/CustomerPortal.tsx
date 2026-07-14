@@ -107,9 +107,21 @@ export default function CustomerPortal() {
                           <p className="text-xs text-gray-400 dark:text-slate-500">วันปล่อยกู้</p>
                           <p className="font-semibold text-gray-900 dark:text-slate-100 mt-0.5">{formatDate(loan.issuedDate)}</p>
                         </div>
+                        {loan.loanType === 'single' && (
+                          <div>
+                            <p className="text-xs text-gray-400 dark:text-slate-500">จำนวนวันที่กู้</p>
+                            <p className="font-semibold text-gray-900 dark:text-slate-100 mt-0.5">
+                              {loan.termDays ?? Math.round((new Date(loan.dueDate).getTime() - new Date(loan.issuedDate).getTime()) / 86400000)} วัน
+                            </p>
+                          </div>
+                        )}
                         <div>
-                          <p className="text-xs text-gray-400 dark:text-slate-500">ครบกำหนด</p>
-                          <p className="font-semibold text-gray-900 dark:text-slate-100 mt-0.5">{formatDate(loan.dueDate)}</p>
+                          <p className="text-xs text-gray-400 dark:text-slate-500">
+                            {isInstallmentBased(loan.loanType) ? 'ชำระงวดถัดไป' : 'ครบกำหนด'}
+                          </p>
+                          <p className="font-semibold text-gray-900 dark:text-slate-100 mt-0.5">
+                            {formatDate((isInstallmentBased(loan.loanType) ? loan.nextInstallmentDueDate : null) ?? loan.dueDate)}
+                          </p>
                         </div>
                         {isInstallmentBased(loan.loanType) && (
                           <div className="col-span-2">
