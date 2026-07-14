@@ -11,6 +11,7 @@ export const mockCustomers: Customer[] = [
     phone: '081-234-5678', idCard: '1234567890123', address: 'บ้านเลขที่ 123 แขวงบางรัก กทม.',
     occupation: 'รับจ้าง', lineId: '@somchai', riskLevel: 'normal', note: '',
     isActive: true, activeLoansCount: 2, totalOutstanding: 9000, creditScore: 82, creditLabel: 'ดี',
+    portalToken: null,
     createdAt: '2024-01-15T09:00:00Z', updatedAt: '2024-06-01T10:00:00Z',
   },
   {
@@ -18,6 +19,7 @@ export const mockCustomers: Customer[] = [
     phone: '082-345-6789', idCard: '2345678901234', address: '456 ถนนสุขุมวิท กทม.',
     occupation: 'แม่บ้าน', riskLevel: 'low', note: 'ชำระตรงเวลาทุกครั้ง',
     isActive: true, activeLoansCount: 0, totalOutstanding: 0, creditScore: 95, creditLabel: 'ดีมาก',
+    portalToken: null,
     createdAt: '2024-02-10T09:00:00Z', updatedAt: '2024-05-20T10:00:00Z',
   },
   {
@@ -25,18 +27,21 @@ export const mockCustomers: Customer[] = [
     phone: '083-456-7890', idCard: '3456789012345', address: '789 ถ.รัชดา กทม.',
     occupation: 'ค้าขาย', riskLevel: 'high', note: 'เคยค้างชำระ 15 วัน',
     isActive: true, activeLoansCount: 1, totalOutstanding: 4000, creditScore: 58, creditLabel: 'ปานกลาง',
+    portalToken: null,
     createdAt: '2024-03-05T09:00:00Z', updatedAt: '2024-06-05T10:00:00Z',
   },
   {
     id: 4, code: 'CUS-0004', firstName: 'สมศรี', lastName: 'ดีงาม',
     phone: '084-567-8901', riskLevel: 'normal',
     isActive: true, activeLoansCount: 1, totalOutstanding: 5000, creditScore: 74, creditLabel: 'ดี',
+    portalToken: null,
     createdAt: '2024-03-20T09:00:00Z', updatedAt: '2024-06-03T10:00:00Z',
   },
   {
     id: 5, code: 'CUS-0005', firstName: 'ประหยัด', lastName: 'น้อยใจ',
     phone: '085-678-9012', riskLevel: 'high', note: 'ค้างชำระ 15 วัน',
     isActive: true, activeLoansCount: 1, totalOutstanding: 8000, creditScore: 38, creditLabel: 'แย่',
+    portalToken: null,
     createdAt: '2024-01-25T09:00:00Z', updatedAt: '2024-05-15T10:00:00Z',
   },
 ]
