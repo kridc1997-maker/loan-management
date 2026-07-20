@@ -166,6 +166,13 @@ export const loanService = {
         overPayment = Math.max(0, loanAmount - remainingInterest - remainingPrincipal)
         newLoanStatus = 'completed'
         cashTxnType = 'principal_in'
+      } else if (loanAmount <= 0) {
+        // Fine-only payment — nothing goes toward principal/interest, so don't touch the
+        // installment schedule (would otherwise fabricate a paid installment below).
+        interestPaid = 0
+        principalPaid = 0
+        overPayment = 0
+        cashTxnType = 'interest_in'
       } else if (paymentType === 'partial' && loan.loan_type === 'single' && explicitPrincipal !== undefined) {
         // single+partial with admin-specified split — use exact amounts provided
         principalPaid = Math.min(explicitPrincipal, remainingPrincipal)
@@ -227,7 +234,7 @@ export const loanService = {
 
       // Check if all installments paid
       let newPaidInstallments = loan.paid_installments
-      if (installmentId) {
+      if (installmentId && loanAmount > 0) {
         await trx('loan_installments').where({ id: installmentId }).update({
           paid_amount: amount,
           paid_date: paymentDate,

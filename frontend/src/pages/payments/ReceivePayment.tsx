@@ -154,7 +154,7 @@ export default function ReceivePayment() {
   const handleSubmit = () => {
     if (!selectedLoan || submitting) return
     if (totalReceived <= 0) return
-    if (isSinglePartial && singlePartialTotal <= 0) return
+    if (isSinglePartial && singlePartialTotal <= 0 && fine <= 0) return
     setSubmitting(true)
 
     const payload: Record<string, unknown> = {
@@ -611,7 +611,7 @@ export default function ReceivePayment() {
             />
             {fine > 0 && (
               <p className="text-xs text-amber-600">
-                ค่าปรับนับเป็นกำไร · ยอดชำระสัญญา {formatCurrency(Number(amount) || 0)} + ค่าปรับ {formatCurrency(fine)}
+                ค่าปรับนับเป็นกำไร · ยอดชำระสัญญา {formatCurrency(loanAmount)} + ค่าปรับ {formatCurrency(fine)}
               </p>
             )}
           </div>
