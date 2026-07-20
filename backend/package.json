@@ -10,7 +10,8 @@
     "migrate": "knex --knexfile src/db/knexfile.ts migrate:latest",
     "migrate:rollback": "knex --knexfile src/db/knexfile.ts migrate:rollback",
     "migrate:prod": "NODE_ENV=production knex --knexfile dist/db/knexfile.js migrate:latest",
-    "seed": "knex --knexfile src/db/knexfile.ts seed:run"
+    "seed": "knex --knexfile src/db/knexfile.ts seed:run",
+    "test": "vitest run"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -32,6 +33,7 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^20.19.42",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }
