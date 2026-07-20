@@ -309,8 +309,8 @@ export default function ExecutiveDashboard() {
           {/* Card 4: กำไรคาดการณ์ */}
           <KpiCard
             title="กำไรคาดการณ์"
-            value={formatCurrency(kpi.expectedProfit)}
-            sub="ดอกเบี้ยคงเหลือจากสัญญาที่ยังไม่ปิด"
+            value={formatCurrency(kpi.expectedProfitThisMonth)}
+            sub={`(ทั้งหมด ${formatCurrency(kpi.expectedProfit)})`}
             icon={<PiggyBank size={18} className="text-indigo-600" />}
             iconBg="bg-indigo-50"
           />

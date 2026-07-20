@@ -178,6 +178,7 @@ export const dashboardRepo = {
     const now = new Date()
     const today = now.toISOString().split('T')[0]
     const monthStart = `${today.slice(0, 7)}-01`
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
     const yesterday = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
@@ -204,6 +205,7 @@ export const dashboardRepo = {
       portfolioGrowthRows,
       expenseMonthRow,
       expectedProfitRow,
+      expectedProfitThisMonthRow,
       profitTodayRow,
       receivedTodayRow,
       profitWeekRow,
@@ -302,6 +304,26 @@ export const dashboardRepo = {
         .whereRaw('txn_date::date >= ?::date', [monthStart])
         .first(),
       db('loans').sum({ total: db.raw('(total_amount - principal_amount) - paid_interest') }).whereIn('status', ['active', 'overdue']).first(),
+      db.raw(`
+        SELECT
+          COALESCE((
+            SELECT SUM(li.interest_portion)
+            FROM loan_installments li
+            JOIN loans l ON l.id = li.loan_id
+            WHERE l.status IN ('active', 'overdue')
+              AND li.status != 'paid'
+              AND li.due_date::date >= ?::date AND li.due_date::date <= ?::date
+          ), 0)
+          +
+          COALESCE((
+            SELECT SUM(l.total_amount - l.principal_amount - l.paid_interest)
+            FROM loans l
+            WHERE l.status IN ('active', 'overdue')
+              AND l.loan_type IN ('single', 'flexible')
+              AND l.due_date::date >= ?::date AND l.due_date::date <= ?::date
+          ), 0)
+          AS total
+      `, [monthStart, monthEnd, monthStart, monthEnd]),
       db('payments')
         .select(db.raw("COALESCE(SUM(interest_paid + COALESCE(fine_paid, 0)), 0) as total"))
         .whereRaw("payment_date::date = ?::date", [today])
@@ -442,6 +464,7 @@ export const dashboardRepo = {
     const netExpense = expenseThisMonth + capitalOutThisMonth
 
     const expectedProfit = Number((expectedProfitRow as any)?.total ?? 0)
+    const expectedProfitThisMonth = Number((expectedProfitThisMonthRow as any).rows?.[0]?.total ?? 0)
     const profitToday = Number((profitTodayRow as any)?.total ?? 0)
     const receivedToday = Number((receivedTodayRow as any)?.total ?? 0)
     const profitThisWeek = Number((profitWeekRow as any)?.total ?? 0)
@@ -543,7 +566,7 @@ export const dashboardRepo = {
         healthActiveScore: activeScore,
         healthBadDebtScore: badDebtScore,
         expenseThisMonth, capitalOutThisMonth, capitalInThisMonth, netExpense,
-        expectedProfit, profitToday, receivedToday,
+        expectedProfit, expectedProfitThisMonth, profitToday, receivedToday,
         profitThisWeek, profitLastWeek, expenseThisWeek, capitalOutThisWeek, capitalInThisWeek, netExpenseThisWeek,
         profitYesterday, expenseToday, capitalOutToday, capitalInToday, netExpenseToday,
       },

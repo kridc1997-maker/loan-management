@@ -320,6 +320,7 @@ export interface ExecKpi {
   capitalInThisMonth: number
   netExpense: number
   expectedProfit: number
+  expectedProfitThisMonth: number
   profitToday: number
   receivedToday: number
   profitThisWeek: number
