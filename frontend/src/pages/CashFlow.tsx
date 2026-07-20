@@ -55,7 +55,7 @@ const TXN_TYPE_LABELS: Record<string, { label: string; color: string; bg: string
 }
 
 const DAILY_FILTERS: { value: string[]; label: string }[] = [
-  { value: [], label: 'ทั้งหมด' },
+  { value: ['capital_in', 'capital_out', 'expense'], label: 'ทั้งหมด' },
   { value: ['capital_in'], label: 'เพิ่มทุน' },
   { value: ['capital_out', 'expense'], label: 'ถอนทุน/ค่าใช้จ่าย' },
 ]
