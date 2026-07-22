@@ -180,6 +180,7 @@ router.get('/payments/daily', authenticate, async (req, res, next) => {
         'p.amount',
         'p.interest_paid',
         'p.principal_paid',
+        'p.fine_paid',
         'p.over_payment',
         'p.payment_type',
         'p.payment_method',

@@ -322,6 +322,7 @@ export default function Dashboard() {
                 <th className="table-header text-right">ยอดรับ</th>
                 <th className="table-header text-right">ดอกเบี้ย</th>
                 <th className="table-header text-right">เงินต้น</th>
+                <th className="table-header text-right">ค่าปรับ</th>
                 <th className="table-header">ช่องทาง</th>
                 {me?.role === 'admin' && <th className="table-header" />}
               </tr>
@@ -329,7 +330,7 @@ export default function Dashboard() {
             <tbody>
               {dailyPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={me?.role === 'admin' ? 8 : 7} className="text-center py-8 text-sm text-gray-400">ไม่มีรายการรับชำระในวันนี้</td>
+                  <td colSpan={me?.role === 'admin' ? 9 : 8} className="text-center py-8 text-sm text-gray-400">ไม่มีรายการรับชำระในวันนี้</td>
                 </tr>
               ) : (
                 dailyPayments.map((p) => {
@@ -355,6 +356,7 @@ export default function Dashboard() {
                       <td className="table-cell text-right font-semibold text-gray-900">{formatCurrency(Number(p.amount))}</td>
                       <td className="table-cell text-right text-green-600 font-medium">{formatCurrency(Number(p.interest_paid))}</td>
                       <td className="table-cell text-right text-blue-600">{formatCurrency(Number(p.principal_paid))}</td>
+                      <td className="table-cell text-right text-amber-600">{formatCurrency(Number(p.fine_paid ?? 0))}</td>
                       <td className="table-cell text-xs text-gray-500">
                         {p.payment_method === 'cash' ? 'เงินสด' : p.payment_method === 'transfer' ? 'โอน' : 'อื่นๆ'}
                       </td>
