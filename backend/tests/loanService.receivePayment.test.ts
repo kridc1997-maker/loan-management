@@ -80,6 +80,45 @@ describe('loanService.receivePayment — fine-only payments (regression)', () =>
     const updatedLoan = await db('loans').where({ id: loan.id }).first()
     expect(Number(updatedLoan.paid_installments)).toBe(0)
   })
+
+  it('single loan rolled over then converted to flexible: a later partial payment must not re-count the settled rollover interest', async () => {
+    const customer = await createTestCustomer()
+    const loan = await loanService.createLoan({
+      customerId: customer.id,
+      principalAmount: 3000,
+      totalAmount: 3600,
+      loanType: 'single',
+      totalInstallments: 1,
+      issuedDate: '2026-06-20',
+      dueDate: '2026-07-20',
+    })
+
+    // Rollover: pay off the 600 interest, extend the due date — resets paid_interest to 0.
+    await loanService.receivePayment({
+      loanId: loan.id,
+      amount: 600,
+      paymentType: 'rollover',
+      paymentMethod: 'cash',
+      paymentDate: '2026-07-20',
+      newDueDate: '2026-08-20',
+    })
+
+    await loanService.convertToFlexible(loan.id)
+
+    await loanService.receivePayment({
+      loanId: loan.id,
+      amount: 100,
+      paymentType: 'partial',
+      paymentMethod: 'cash',
+      paymentDate: '2026-08-01',
+    })
+
+    const updatedLoan = await db('loans').where({ id: loan.id }).first()
+    expect(Number(updatedLoan.paid_interest)).toBe(100)
+    expect(Number(updatedLoan.paid_principal)).toBe(0)
+    const amountDue = Number(updatedLoan.total_amount) - Number(updatedLoan.paid_principal) - Number(updatedLoan.paid_interest)
+    expect(amountDue).toBe(3500)
+  })
 })
 
 describe('loanService.receivePayment — happy paths', () => {

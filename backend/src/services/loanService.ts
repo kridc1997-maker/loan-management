@@ -214,7 +214,10 @@ export const loanService = {
 
       // For single loans: use incremental update to preserve rollover resets (paid_interest = 0 after each rollover).
       // Self-healing SUM would count all historical rollover interest, inflating paid_interest beyond total interest.
-      // For other loan types: self-healing is safe since they don't use rollover resets.
+      // For other loan types: self-healing is safe against the loan's OWN history, but a loan that
+      // started single, got rolled over (interest reset to 0), and was later converted (e.g. to
+      // flexible) still carries that rollover payment in its payments history — exclude it, since
+      // its interest was already fully settled/reset at rollover time and must never be recounted.
       let newPaidPrincipal: number
       let newPaidInterest: number
       if (loan.loan_type === 'single') {
@@ -223,6 +226,7 @@ export const loanService = {
       } else {
         const paidTotals = await trx('payments')
           .where({ loan_id: loanId })
+          .whereNot({ payment_type: 'rollover' })
           .select(
             trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
             trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
