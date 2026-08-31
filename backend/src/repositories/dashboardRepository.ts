@@ -360,10 +360,17 @@ export const dashboardRepo = {
         .whereRaw('txn_date::date = ?::date', [today])
         .first(),
       // Reconstruct daily cash-on-hand (last ledger balance on/before each day) and outstanding
-      // principal (cumulative disbursed minus cumulative principal collected as of each day,
-      // restricted to loans currently active/overdue — same filter as the live "เงินต้นคงค้าง"
-      // KPI above, so today's last point matches that card exactly) — works retroactively over
-      // real history without needing a daily-snapshot job.
+      // principal (cumulative disbursed minus cumulative principal collected as of each day) —
+      // works retroactively over real history without needing a daily-snapshot job.
+      //
+      // A loan counts as outstanding on day d if it existed by then (issued_date <= d) and wasn't
+      // yet closed as of that day. Filtering by the loan's CURRENT status instead (as this used to)
+      // silently drops any loan that has since been paid off from every past day too — undercounting
+      // history by however much has closed since. closed_date is the correct historical signal;
+      // status is only a fallback for the (should-be-rare) case of a loan marked completed without
+      // closed_date ever having been set, where we conservatively treat it as already closed rather
+      // than open forever. bad_debt/written_off are excluded throughout, matching the live
+      // "เงินต้นคงค้าง" KPI's definition.
       db.raw(`
         SELECT
           to_char(d.date, 'YYYY-MM-DD') AS date,
@@ -374,10 +381,20 @@ export const dashboardRepo = {
           ), 0) AS cash_on_hand,
           COALESCE((
             SELECT SUM(l.principal_amount) FROM loans l
-            WHERE l.issued_date::date <= d.date AND l.status IN ('active', 'overdue')
+            WHERE l.issued_date::date <= d.date
+              AND l.status NOT IN ('bad_debt', 'written_off')
+              AND (
+                (l.closed_date IS NOT NULL AND l.closed_date::date > d.date)
+                OR (l.closed_date IS NULL AND l.status IN ('active', 'overdue'))
+              )
           ), 0) - COALESCE((
             SELECT SUM(p.principal_paid) FROM payments p JOIN loans l2 ON l2.id = p.loan_id
-            WHERE p.payment_date::date <= d.date AND l2.status IN ('active', 'overdue')
+            WHERE p.payment_date::date <= d.date
+              AND l2.status NOT IN ('bad_debt', 'written_off')
+              AND (
+                (l2.closed_date IS NOT NULL AND l2.closed_date::date > d.date)
+                OR (l2.closed_date IS NULL AND l2.status IN ('active', 'overdue'))
+              )
           ), 0) AS outstanding_principal
         FROM generate_series(CURRENT_DATE - INTERVAL '29 days', CURRENT_DATE, INTERVAL '1 day') AS d(date)
         ORDER BY d.date
