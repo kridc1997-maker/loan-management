@@ -173,6 +173,35 @@ export default function NewLoan() {
           <h2 className="text-sm font-semibold text-gray-900">รายละเอียดสินเชื่อ</h2>
         </div>
 
+        <div>
+          <label className="label">ประเภทการชำระ</label>
+          <div className="flex gap-3 flex-wrap">
+            {[
+              { value: 'single',      label: 'ครั้งเดียว',    desc: 'จ่ายครบรวดเดียว' },
+              { value: 'installment', label: 'แบ่งงวด',       desc: 'จ่ายตามตาราง' },
+              { value: 'daily',       label: 'รายวัน',        desc: 'จ่ายวันละยอดที่กำหนด' },
+              { value: 'flexible',    label: 'ผ่อนยืดหยุ่น', desc: 'จ่ายเมื่อไร ยอดเท่าไรก็ได้' },
+            ].map((opt) => (
+              <label key={opt.value} className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all ${loanType === opt.value ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}`}>
+                <input type="radio" name="loanType" value={opt.value} checked={loanType === opt.value}
+                  onChange={() => {
+                    setLoanType(opt.value as LoanType)
+                    setHasPrePaid(false)
+                    setPrePaidCount(0)
+                    if (opt.value === 'flexible') setDurationDays(365)
+                    else if (opt.value !== 'flexible') setDurationDays(7)
+                    if (opt.value === 'daily') setDailyAmount('')
+                  }}
+                  className="accent-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{opt.label}</p>
+                  <p className="text-xs text-gray-400">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label">เงินต้น (฿) *</label>
@@ -249,35 +278,6 @@ export default function NewLoan() {
             </span>
           </div>
         )}
-
-        <div>
-          <label className="label">ประเภทการชำระ</label>
-          <div className="flex gap-3 flex-wrap">
-            {[
-              { value: 'single',      label: 'ครั้งเดียว',    desc: 'จ่ายครบรวดเดียว' },
-              { value: 'installment', label: 'แบ่งงวด',       desc: 'จ่ายตามตาราง' },
-              { value: 'daily',       label: 'รายวัน',        desc: 'จ่ายวันละยอดที่กำหนด' },
-              { value: 'flexible',    label: 'ผ่อนยืดหยุ่น', desc: 'จ่ายเมื่อไร ยอดเท่าไรก็ได้' },
-            ].map((opt) => (
-              <label key={opt.value} className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all ${loanType === opt.value ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}`}>
-                <input type="radio" name="loanType" value={opt.value} checked={loanType === opt.value}
-                  onChange={() => {
-                    setLoanType(opt.value as LoanType)
-                    setHasPrePaid(false)
-                    setPrePaidCount(0)
-                    if (opt.value === 'flexible') setDurationDays(365)
-                    else if (opt.value !== 'flexible') setDurationDays(7)
-                    if (opt.value === 'daily') setDailyAmount('')
-                  }}
-                  className="accent-blue-600" />
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{opt.label}</p>
-                  <p className="text-xs text-gray-400">{opt.desc}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
 
         {loanType === 'flexible' && (
           <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs text-purple-800 space-y-1">
