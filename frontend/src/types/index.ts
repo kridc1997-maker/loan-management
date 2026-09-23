@@ -299,6 +299,9 @@ export interface ExecKpi {
   roi: number
   nplRate: number
   nplAmount: number
+  nplRateThisMonth: number
+  nplAmountThisMonth: number
+  badDebtCountThisMonth: number
   overdueCount: number
   overdueAmount: number
   badDebtCount: number
@@ -319,6 +322,8 @@ export interface ExecKpi {
   capitalOutThisMonth: number
   capitalInThisMonth: number
   netExpense: number
+  netProfitThisMonth: number
+  loanableAmount: number
   expectedProfit: number
   expectedProfitThisMonth: number
   profitToday: number

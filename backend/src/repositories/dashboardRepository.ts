@@ -198,6 +198,7 @@ export const dashboardRepo = {
       profitLastMonthRow,
       overdueRow,
       badDebtRow,
+      badDebtThisMonthRow,
       portfolioByTypeRows,
       forecastInstallmentRows,
       forecastSingleRows,
@@ -251,6 +252,16 @@ export const dashboardRepo = {
           db.raw('COALESCE(SUM(total_lost), 0) AS amount'),
         )
         .first(),
+      // NPL card resets every month — only bad debt marked this month, not the all-time total
+      // (the separate "หนี้เสีย" card above keeps the all-time figure)
+      db('bad_debts')
+        .where('is_recovered', false)
+        .whereRaw('marked_date::date >= ?::date', [monthStart])
+        .select(
+          db.raw('COUNT(*) AS count'),
+          db.raw('COALESCE(SUM(total_lost), 0) AS amount'),
+        )
+        .first(),
       db('loans')
         .whereIn('status', ['active', 'overdue'])
         .select(
@@ -259,6 +270,8 @@ export const dashboardRepo = {
           db.raw('COUNT(*) AS count'),
         )
         .groupBy('loan_type'),
+      // Interest-only forecast (not principal+interest) — this feeds cashForecast/forecast7Days,
+      // which are meant to show expected profit, not total cash movement.
       db('loan_installments as li')
         .join('loans as l', 'l.id', 'li.loan_id')
         .whereIn('l.status', ['active', 'overdue'])
@@ -267,7 +280,7 @@ export const dashboardRepo = {
         .whereRaw('li.due_date::date <= ?::date', [sevenDaysLater])
         .select(
           db.raw("to_char(li.due_date::date, 'YYYY-MM-DD') AS due_date"),
-          db.raw('COALESCE(SUM(li.amount_due - li.paid_amount), 0) AS amount'),
+          db.raw('COALESCE(SUM(li.interest_portion), 0) AS amount'),
         )
         .groupByRaw("to_char(li.due_date::date, 'YYYY-MM-DD')")
         .orderByRaw("to_char(li.due_date::date, 'YYYY-MM-DD')"),
@@ -278,7 +291,7 @@ export const dashboardRepo = {
         .whereRaw('due_date::date <= ?::date', [sevenDaysLater])
         .select(
           db.raw("to_char(due_date::date, 'YYYY-MM-DD') AS due_date"),
-          db.raw('COALESCE(SUM(total_amount - paid_principal - paid_interest), 0) AS amount'),
+          db.raw('COALESCE(SUM(interest_amount - paid_interest), 0) AS amount'),
         )
         .groupByRaw("to_char(due_date::date, 'YYYY-MM-DD')")
         .orderByRaw("to_char(due_date::date, 'YYYY-MM-DD')"),
@@ -473,12 +486,16 @@ export const dashboardRepo = {
     const overdueAmount = Number(overdueRow?.amount ?? 0)
     const badDebtCount = Number(badDebtRow?.count ?? 0)
     const badDebtAmount = Number(badDebtRow?.amount ?? 0)
+    const badDebtCountThisMonth = Number(badDebtThisMonthRow?.count ?? 0)
+    const badDebtAmountThisMonth = Number(badDebtThisMonthRow?.amount ?? 0)
     const totalAsset = cashOnHand + outstandingPrincipal
 
     const expenseThisMonth = Number(expenseMonthRow?.expense_total ?? 0)
     const capitalOutThisMonth = Number(expenseMonthRow?.capital_out_total ?? 0)
     const capitalInThisMonth = Number(expenseMonthRow?.capital_in_total ?? 0)
     const netExpense = expenseThisMonth + capitalOutThisMonth
+    const netProfitThisMonth = profitThisMonth - expenseThisMonth
+    const loanableAmount = cashOnHand - netProfitThisMonth
 
     const expectedProfit = Number((expectedProfitRow as any)?.total ?? 0)
     const expectedProfitThisMonth = Number((expectedProfitThisMonthRow as any).rows?.[0]?.total ?? 0)
@@ -520,6 +537,10 @@ export const dashboardRepo = {
     // KPI derivations
     const nplBase = outstandingPrincipal + badDebtAmount
     const nplRate = nplBase > 0 ? badDebtAmount / nplBase : 0
+    // NPL card resets every month — bad debt marked this month only (data itself isn't touched,
+    // still counted in the all-time badDebtAmount/badDebtCount used by the separate หนี้เสีย card)
+    const nplBaseThisMonth = outstandingPrincipal + badDebtAmountThisMonth
+    const nplRateThisMonth = nplBaseThisMonth > 0 ? badDebtAmountThisMonth / nplBaseThisMonth : 0
     const roi = outstandingPrincipal > 0 ? (profitThisMonth / outstandingPrincipal) * 100 : 0
     const cashUtilization = totalAsset > 0 ? (outstandingPrincipal / totalAsset) * 100 : 0
     const averageLoan = activeLoansCount > 0 ? outstandingPrincipal / activeLoansCount : 0
@@ -573,6 +594,7 @@ export const dashboardRepo = {
         outstandingPrincipal, activeLoansCount,
         profitThisMonth, profitLastMonth,
         roi, nplRate, nplAmount: badDebtAmount,
+        nplRateThisMonth, nplAmountThisMonth: badDebtAmountThisMonth, badDebtCountThisMonth,
         overdueCount, overdueAmount,
         badDebtCount, badDebtAmount,
         totalCustomers, repeatCustomers, repeatCustomerRate,
@@ -582,7 +604,7 @@ export const dashboardRepo = {
         healthOverdueScore: overdueScore,
         healthActiveScore: activeScore,
         healthBadDebtScore: badDebtScore,
-        expenseThisMonth, capitalOutThisMonth, capitalInThisMonth, netExpense,
+        expenseThisMonth, capitalOutThisMonth, capitalInThisMonth, netExpense, netProfitThisMonth, loanableAmount,
         expectedProfit, expectedProfitThisMonth, profitToday, receivedToday,
         profitThisWeek, profitLastWeek, expenseThisWeek, capitalOutThisWeek, capitalInThisWeek, netExpenseThisWeek,
         profitYesterday, expenseToday, capitalOutToday, capitalInToday, netExpenseToday,

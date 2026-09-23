@@ -22,7 +22,7 @@ export default function KpiCard({ title, value, sub, sub2, icon, iconBg, trend, 
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide truncate">{title}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900 truncate">{value}</p>
           {sub && <p className="mt-0.5 text-xs text-gray-500">{sub}</p>}
-          {sub2 && <p className="mt-0.5 text-xs text-red-400">{sub2}</p>}
+          {sub2 && <p className="mt-0.5 text-xs text-gray-400">{sub2}</p>}
           {trend && (
             <p className={`mt-1 text-xs font-medium ${trend.positive ? 'text-green-600' : 'text-red-600'}`}>
               {trend.positive ? '▲' : '▼'} {trend.value}

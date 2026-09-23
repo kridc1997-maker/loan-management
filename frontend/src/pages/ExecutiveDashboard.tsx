@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Wallet, TrendingUp, PiggyBank, BadgeDollarSign, AlertTriangle,
@@ -8,13 +8,15 @@ import {
 } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import KpiCard from '../components/ui/KpiCard'
 import { formatCurrency, formatDate } from '../utils/financial'
-import { executiveApi } from '../api/endpoints'
+import { executiveApi, dashboardApi } from '../api/endpoints'
 import { useLoanCreationPaused } from '../hooks/useLoanCreationPaused'
-import type { ExecutiveDashboardData, ExecKpi, ExecRiskItem } from '../types'
+import type { ExecutiveDashboardData, ExecKpi, ExecRiskItem, CashFlowSummary } from '../types'
+
+type TablePeriod = '3d' | '5d' | '7d' | '14d' | '30d'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -153,7 +155,7 @@ function generateInsights(kpi: ExecKpi): Insight[] {
   }
 
   if (kpi.forecast7Days > 0) {
-    items.push({ text: `คาดรับชำระใน 7 วันข้างหน้า ${formatCurrency(kpi.forecast7Days)}`, type: 'info' })
+    items.push({ text: `คาดได้ดอกเบี้ยใน 7 วันข้างหน้า ${formatCurrency(kpi.forecast7Days)}`, type: 'info' })
   }
 
   return items.slice(0, 6)
@@ -202,6 +204,11 @@ export default function ExecutiveDashboard() {
   const [loading, setLoading] = useState(true)
   const loanCreationPaused = useLoanCreationPaused()
 
+  // Net Flow table (moved here from จัดการกระเป๋าตัง — independent period from the rest of the page)
+  const [tablePeriod, setTablePeriod] = useState<TablePeriod>('7d')
+  const [tableCashFlow, setTableCashFlow] = useState<CashFlowSummary | null>(null)
+  const [tableLoading, setTableLoading] = useState(true)
+
   const load = () => {
     setLoading(true)
     executiveApi.dashboard()
@@ -209,7 +216,14 @@ export default function ExecutiveDashboard() {
       .finally(() => setLoading(false))
   }
 
+  const loadTableCashFlow = useCallback(() => {
+    setTableLoading(true)
+    const days = tablePeriod === '3d' ? 3 : tablePeriod === '5d' ? 5 : tablePeriod === '7d' ? 7 : tablePeriod === '14d' ? 14 : 30
+    dashboardApi.cashFlow(days).then((res) => setTableCashFlow(res.data.data)).finally(() => setTableLoading(false))
+  }, [tablePeriod])
+
   useEffect(() => { load() }, [])
+  useEffect(() => { loadTableCashFlow() }, [loadTableCashFlow])
 
   if (loading || !data) {
     return (
@@ -219,17 +233,11 @@ export default function ExecutiveDashboard() {
     )
   }
 
-  const { kpi, cashForecast, portfolioByType, revenueTrend, portfolioGrowth, totalAssetTrend, topCustomers, riskMonitor } = data
+  // totalAssetTrend: chart removed from display for now, kept commented out below — not destructured
+  // to avoid an unused-var build error; re-add here when restoring that section.
+  const { kpi, cashForecast, portfolioByType, revenueTrend, topCustomers, riskMonitor } = data
   const insights = generateInsights(kpi)
 
-  // cumulativeProfit from monthly_snapshots is always 0 (table unpopulated).
-  // Recompute from revenueTrend which correctly reads from payments table.
-  const revTrendMap = Object.fromEntries(revenueTrend.map((r) => [r.month, r.interest]))
-  let cumProfit = 0
-  const portfolioGrowthFixed = portfolioGrowth.map((g) => {
-    cumProfit += revTrendMap[g.month] ?? 0
-    return { ...g, cumulativeProfit: cumProfit }
-  })
   const cashChange = kpi.cashOnHand - kpi.cashYesterday
   const profitChangePct = kpi.profitLastMonth > 0
     ? (kpi.profitThisMonth - kpi.profitLastMonth) / kpi.profitLastMonth * 100
@@ -280,6 +288,7 @@ export default function ExecutiveDashboard() {
             sub={cashChange >= 0
               ? `+${formatCurrency(cashChange)} จากเมื่อวาน`
               : `${formatCurrency(cashChange)} จากเมื่อวาน`}
+            sub2={`ยอดที่ปล่อยได้ ${formatCurrency(kpi.loanableAmount)}`}
             icon={<Wallet size={18} className={cashChange >= 0 ? 'text-blue-600' : 'text-red-500'} />}
             iconBg={cashChange >= 0 ? 'bg-blue-50' : 'bg-red-50'}
             trend={cashChange !== 0
@@ -407,18 +416,18 @@ export default function ExecutiveDashboard() {
           <KpiCard
             title="Forecast 7 วัน"
             value={formatCurrency(kpi.forecast7Days)}
-            sub="ยอดที่จะรับภายใน 7 วัน"
+            sub="ดอกเบี้ยที่จะได้ภายใน 7 วัน"
             icon={<Calendar size={18} className="text-cyan-600" />}
             iconBg="bg-cyan-50"
           />
 
-          {/* Card 10: NPL */}
+          {/* Card 10: NPL (resets every month — bad debt marked this month only) */}
           <KpiCard
             title="NPL"
-            value={kpi.nplRate === 0 ? '0%' : `${(kpi.nplRate * 100).toFixed(2)}%`}
-            sub={kpi.badDebtCount === 0 ? 'ไม่มีหนี้เสีย' : `หนี้เสีย ${formatCurrency(kpi.nplAmount)}`}
-            icon={<Shield size={18} className={kpi.nplRate === 0 ? 'text-green-600' : 'text-red-500'} />}
-            iconBg={kpi.nplRate === 0 ? 'bg-green-50' : 'bg-red-50'}
+            value={kpi.nplRateThisMonth === 0 ? '0%' : `${(kpi.nplRateThisMonth * 100).toFixed(2)}%`}
+            sub={kpi.badDebtCountThisMonth === 0 ? 'ไม่มีหนี้เสีย' : `หนี้เสีย ${formatCurrency(kpi.nplAmountThisMonth)}`}
+            icon={<Shield size={18} className={kpi.nplRateThisMonth === 0 ? 'text-green-600' : 'text-red-500'} />}
+            iconBg={kpi.nplRateThisMonth === 0 ? 'bg-green-50' : 'bg-red-50'}
           />
 
           {/* Card 11: ลูกหนี้ค้างชำระ */}
@@ -572,7 +581,7 @@ export default function ExecutiveDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Cash Forecast</h2>
-              <p className="text-xs text-gray-500 mt-0.5">ยอดที่คาดว่าจะรับใน 7 วันข้างหน้า</p>
+              <p className="text-xs text-gray-500 mt-0.5">ดอกเบี้ยที่คาดว่าจะได้รับใน 7 วันข้างหน้า</p>
             </div>
             <Calendar size={15} className="text-gray-400" />
           </div>
@@ -596,7 +605,7 @@ export default function ExecutiveDashboard() {
                   tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
                 />
                 <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="amount" name="ยอดรับ" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="amount" name="ดอกเบี้ย" fill="#3b82f6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -664,6 +673,62 @@ export default function ExecutiveDashboard() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
+          SECTION 4.5 — Net Flow (moved here from จัดการกระเป๋าตัง)
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="card p-0 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900">Net Flow</h2>
+          <div className="flex gap-1.5">
+            {(['3d', '5d', '7d', '14d', '30d'] as TablePeriod[]).map((p) => (
+              <button key={p} onClick={() => setTablePeriod(p)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                  tablePeriod === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {p === '3d' ? '3 วัน' : p === '5d' ? '5 วัน' : p === '7d' ? '7 วัน' : p === '14d' ? '14 วัน' : '30 วัน'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <div className="overflow-y-auto" style={{ maxHeight: '320px' }}>
+            {tableLoading ? (
+              <div className="flex justify-center py-10">
+                <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                  <tr>
+                    <th className="table-header">วันที่</th>
+                    <th className="table-header text-right">รับเข้า</th>
+                    <th className="table-header text-right">จ่ายออก</th>
+                    <th className="table-header text-right">Net</th>
+                    <th className="table-header text-right">ยอดคงเหลือ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...(tableCashFlow?.daily ?? [])].reverse().map((d) => {
+                    const net = d.in - d.out
+                    return (
+                      <tr key={d.date} className="border-b border-gray-50 hover:bg-gray-50">
+                        <td className="table-cell text-gray-600">{String(d.date).slice(5)}</td>
+                        <td className="table-cell text-right text-blue-600 font-medium">{formatCurrency(d.in)}</td>
+                        <td className="table-cell text-right text-red-500">{formatCurrency(d.out)}</td>
+                        <td className={`table-cell text-right font-semibold ${net >= 0 ? 'text-green-600' : 'text-orange-600'}`}>
+                          {net >= 0 ? '+' : ''}{formatCurrency(net)}
+                        </td>
+                        <td className="table-cell text-right font-semibold text-gray-900">{formatCurrency(d.balance)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
           SECTION 5 — Top Customers
       ══════════════════════════════════════════════════════════════════════ */}
       <div className="card p-0 overflow-hidden">
@@ -725,10 +790,9 @@ export default function ExecutiveDashboard() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 6 + 7 — Revenue Trend & Portfolio Growth
+          SECTION 6 — Revenue Trend
       ══════════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* SECTION 6: Revenue Trend */}
+      <div className="grid grid-cols-1 gap-6">
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -766,59 +830,12 @@ export default function ExecutiveDashboard() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-
-        {/* SECTION 7: Portfolio Growth */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900">Portfolio Growth</h2>
-              <p className="text-xs text-gray-500 mt-0.5">เงินต้นคงค้าง vs กำไรสะสม 12 เดือน</p>
-            </div>
-            <Activity size={15} className="text-gray-400" />
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={portfolioGrowthFixed}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={formatMonth}
-              />
-              <YAxis
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
-              />
-              <Tooltip content={<ChartTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line
-                type="monotone"
-                dataKey="outstanding"
-                name="เงินต้นคงค้าง"
-                stroke="#3b82f6"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="cumulativeProfit"
-                name="กำไรสะสม"
-                stroke="#22c55e"
-                strokeWidth={2}
-                dot={false}
-                strokeDasharray="5 3"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          SECTION 7.5 — Total Asset Trend (30 วัน)
+          SECTION 7.5 — Total Asset Trend (30 วัน) — removed from display for now, code kept below
       ══════════════════════════════════════════════════════════════════════ */}
+      {/*
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -856,6 +873,7 @@ export default function ExecutiveDashboard() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      */}
 
       {/* ══════════════════════════════════════════════════════════════════════
           SECTION 8 — Risk Monitor
