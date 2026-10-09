@@ -36,8 +36,8 @@ export default function ActiveLoans() {
       return matchSearch && matchStatus
     })
     .sort((a, b) => {
-      const aActive = a.status !== 'completed'
-      const bActive = b.status !== 'completed'
+      const aActive = !['completed', 'merged'].includes(a.status)
+      const bActive = !['completed', 'merged'].includes(b.status)
       if (aActive !== bActive) return aActive ? -1 : 1
       const typeDiff = loanTypePriority(a.loanType) - loanTypePriority(b.loanType)
       if (typeDiff !== 0) return typeDiff
@@ -78,6 +78,7 @@ export default function ActiveLoans() {
             { value: 'active', label: 'Active' },
             { value: 'overdue', label: 'ค้างชำระ' },
             { value: 'completed', label: 'ปิดแล้ว' },
+            { value: 'merged', label: 'รวมหนี้แล้ว' },
           ].map((opt) => (
             <button
               key={opt.value}
@@ -125,9 +126,9 @@ export default function ActiveLoans() {
                   return (
                     <tr key={loan.id}
                       className={`border-b cursor-pointer transition-colors ${
-                        loan.status !== 'completed' && (overdue > 0 || loan.status === 'overdue')
+                        !['completed', 'merged'].includes(loan.status) && (overdue > 0 || loan.status === 'overdue')
                           ? 'bg-red-50 hover:bg-red-100'
-                          : loan.status !== 'completed' && loan.dueDate === todayInputDate()
+                          : !['completed', 'merged'].includes(loan.status) && loan.dueDate === todayInputDate()
                             ? 'bg-yellow-50 hover:bg-yellow-100'
                             : 'hover:bg-gray-50'
                       }`}
@@ -167,7 +168,7 @@ export default function ActiveLoans() {
                       <td className="table-cell text-center">
                         <div>
                           <p className="text-xs text-gray-700">{formatDate(loan.dueDate)}</p>
-                          {overdue > 0 && loan.status !== 'completed' && (
+                          {overdue > 0 && !['completed', 'merged'].includes(loan.status) && (
                             <p className="text-xs text-red-500 font-medium">ค้าง {overdue} วัน</p>
                           )}
                         </div>

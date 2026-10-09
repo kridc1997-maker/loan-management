@@ -54,6 +54,7 @@ export const loanApi = {
     api.post(`/loans/${id}/reset-balance`, data),
   markComplete: (id: number) => api.post(`/loans/${id}/mark-complete`),
   convertToFlexible: (id: number) => api.post(`/loans/${id}/convert-to-flexible`),
+  merge: (customerId: number, loanIds: number[]) => api.post('/loans/merge', { customerId, loanIds }),
   updateDueDate: (id: number, newDueDate: string) => api.put(`/loans/${id}/due-date`, { newDueDate }),
   adjust: (id: number, data: { principalAmount: number; totalAmount: number }) =>
     api.put(`/loans/${id}/adjust`, data),

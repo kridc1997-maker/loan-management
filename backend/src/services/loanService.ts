@@ -137,6 +137,7 @@ export const loanService = {
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
     if (loan.status === 'completed') throw new AppError(400, 'สัญญานี้ปิดแล้ว')
     if (loan.status === 'bad_debt') throw new AppError(400, 'สัญญานี้เป็นหนี้เสีย')
+    if (loan.status === 'merged') throw new AppError(400, 'สัญญานี้ถูกรวมหนี้แล้ว')
 
     return db.transaction(async (trx) => {
       const paymentNumber = await generatePaymentNumber()
@@ -349,7 +350,7 @@ export const loanService = {
   async updateDueDate(loanId: number, newDueDate: string, createdBy?: number) {
     const loan = await loanRepo.findById(loanId)
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
-    if (['completed', 'bad_debt', 'written_off'].includes(loan.status)) {
+    if (['completed', 'bad_debt', 'written_off', 'merged'].includes(loan.status)) {
       throw new AppError(400, 'ไม่สามารถแก้ไขสัญญาที่ปิดแล้วได้')
     }
 
@@ -427,7 +428,7 @@ export const loanService = {
     const loan = await loanRepo.findById(loanId)
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
     if (loan.loan_type !== 'single') throw new AppError(400, 'ใช้ได้เฉพาะสัญญาแบบครั้งเดียวเท่านั้น')
-    if (['completed', 'bad_debt', 'written_off'].includes(loan.status)) {
+    if (['completed', 'bad_debt', 'written_off', 'merged'].includes(loan.status)) {
       throw new AppError(400, 'ไม่สามารถแก้ไขสัญญาที่ปิดแล้วได้')
     }
     const interestRate = (totalAmount - principalAmount) / principalAmount
@@ -460,7 +461,7 @@ export const loanService = {
     const loan = await loanRepo.findById(loanId)
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
     if (loan.status === 'completed') throw new AppError(400, 'สัญญานี้ปิดแล้ว')
-    if (['bad_debt', 'written_off'].includes(loan.status)) throw new AppError(400, 'ไม่สามารถปิดสัญญานี้ได้')
+    if (['bad_debt', 'written_off', 'merged'].includes(loan.status)) throw new AppError(400, 'ไม่สามารถปิดสัญญานี้ได้')
 
     let extraUpdate: Record<string, unknown> = {}
     if (isInstallmentBased(loan.loan_type)) {
@@ -588,10 +589,79 @@ export const loanService = {
     return loanRepo.findById(loanId)
   },
 
+  /**
+   * Debt consolidation: roll several of ONE customer's active single/flexible loans into a single new
+   * flexible loan for the combined remaining balance (principal + interest not yet paid).
+   * Pure restructuring — no cash moves and no payment rows are created; the old loans are closed with
+   * status 'merged' (not 'completed', so they never count as cleanly repaid) and the new loan records
+   * which loans it came from in merged_from so "money lent" statistics can exclude it.
+   */
+  async mergeLoans(customerId: number, loanIds: number[], createdBy?: number) {
+    const ids = Array.from(new Set(loanIds.map(Number)))
+    if (ids.length < 2) throw new AppError(400, 'ต้องเลือกอย่างน้อย 2 สัญญา')
+
+    const newLoanNumber = await generateLoanNumber()
+    const today = todayStr()
+
+    const newLoanId = await db.transaction(async (trx) => {
+      const loans = await trx('loans').whereIn('id', ids).forUpdate()
+      if (loans.length !== ids.length) throw new AppError(404, 'ไม่พบสัญญาที่เลือก')
+      for (const l of loans) {
+        if (Number(l.customer_id) !== Number(customerId)) throw new AppError(400, 'สัญญาต้องเป็นของลูกค้าคนเดียวกัน')
+        if (!['active', 'overdue'].includes(l.status)) throw new AppError(400, `สัญญา ${l.loan_number} ไม่ได้อยู่ในสถานะที่รวมหนี้ได้`)
+        if (!['single', 'flexible'].includes(l.loan_type)) throw new AppError(400, `สัญญา ${l.loan_number} เป็นประเภทที่รวมหนี้ไม่ได้ (รวมได้เฉพาะครั้งเดียว/ยืดหยุ่น)`)
+      }
+
+      let principal = 0
+      let interest = 0
+      for (const l of loans) {
+        principal += Math.max(0, Number(l.principal_amount) - Number(l.paid_principal))
+        interest += Math.max(0, Number(l.total_amount) - Number(l.principal_amount) - Number(l.paid_interest))
+      }
+      if (principal <= 0) throw new AppError(400, 'สัญญาที่เลือกไม่มีเงินต้นคงเหลือ')
+      const total = principal + interest
+      const durationDays = 365
+
+      const [created] = await trx('loans').insert({
+        loan_number: newLoanNumber,
+        customer_id: customerId,
+        principal_amount: principal,
+        total_amount: total,
+        interest_rate: interest / principal,
+        loan_type: 'flexible',
+        total_installments: 0,
+        issued_date: today,
+        due_date: addDays(today, durationDays),
+        term_days: durationDays,
+        status: 'active',
+        note: `รวมหนี้จากสัญญา ${loans.map((l) => l.loan_number).join(', ')}`,
+        merged_from: JSON.stringify(loans.map((l) => l.id)),
+        created_by: createdBy,
+      }).returning('*')
+
+      await trx('loans').whereIn('id', ids).update({ status: 'merged', closed_date: today, updated_at: new Date() })
+
+      await trx('audit_logs').insert({
+        user_id: createdBy,
+        action: 'MERGE_LOANS',
+        entity_type: 'loan',
+        entity_id: created.id,
+        new_data: JSON.stringify({
+          newLoanNumber, principal, interest, total,
+          from: loans.map((l) => ({ id: l.id, loanNumber: l.loan_number, paidPrincipal: Number(l.paid_principal), paidInterest: Number(l.paid_interest) })),
+        }),
+      })
+      return created.id as number
+    })
+
+    return loanRepo.findById(newLoanId)
+  },
+
   async markAsBadDebt(loanId: number, reason: string, createdBy?: number) {
     const loan = await loanRepo.findById(loanId)
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
     if (loan.status === 'bad_debt') throw new AppError(400, 'สัญญานี้เป็นหนี้เสียแล้ว')
+    if (loan.status === 'merged') throw new AppError(400, 'สัญญานี้ถูกรวมหนี้แล้ว')
 
     return db.transaction(async (trx) => {
       await trx('loans').where({ id: loanId }).update({ status: 'bad_debt', updated_at: new Date() })
@@ -634,6 +704,7 @@ export const loanService = {
     return db.transaction(async (trx) => {
       const loan = await trx('loans').where({ id: payment.loan_id }).first()
       if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
+      if (loan.status === 'merged') throw new AppError(400, 'ไม่สามารถลบรายการของสัญญาที่ถูกรวมหนี้แล้ว')
 
       // Undo the cash ledger entry, then patch every later row's running balance by the same delta
       // (the exact pattern used to recover from a leftover test-data ledger corruption earlier).

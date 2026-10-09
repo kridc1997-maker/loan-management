@@ -11,6 +11,7 @@ const config: Record<string, { label: string; className: string }> = {
   overdue: { label: 'ค้างชำระ', className: 'bg-red-100 text-red-800' },
   bad_debt: { label: 'หนี้เสีย', className: 'bg-gray-200 text-gray-700' },
   written_off: { label: 'ตัดหนี้แล้ว', className: 'bg-gray-100 text-gray-500' },
+  merged: { label: 'รวมหนี้แล้ว', className: 'bg-purple-100 text-purple-700' },
   // Installment status
   pending: { label: 'รอชำระ', className: 'bg-yellow-100 text-yellow-800' },
   paid: { label: 'ชำระแล้ว', className: 'bg-green-100 text-green-800' },

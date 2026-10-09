@@ -148,6 +148,7 @@ router.post('/loans/:id/mark-bad-debt', authenticate, loanController.markBadDebt
 router.post('/loans/:id/reset-balance', authenticate, loanController.resetBalance)
 router.post('/loans/:id/mark-complete', authenticate, loanController.markComplete)
 router.post('/loans/:id/convert-to-flexible', authenticate, loanController.convertToFlexible)
+router.post('/loans/merge', authenticate, requireAdmin, loanController.mergeLoans)
 router.put('/loans/:id/due-date', authenticate, loanController.updateDueDate)
 router.put('/loans/:id/adjust', authenticate, loanController.adjustAmounts)
 
@@ -267,6 +268,7 @@ router.get('/reports/monthly-stats', authenticate, requireAdmin, async (req, res
           db.raw("TO_CHAR(DATE_TRUNC('month', issued_date::date), 'YYYY-MM') AS month_key"),
           db.raw('SUM(principal_amount) AS loans_issued'),
         )
+        .whereNull('merged_from')
         .whereBetween('issued_date', [from, to])
         .groupByRaw("DATE_TRUNC('month', issued_date::date)")
         .orderBy('month_key'),
@@ -320,6 +322,7 @@ router.post('/reports/snapshots/generate', authenticate, requireAdmin, async (_r
             db.raw('COALESCE(SUM(principal_amount), 0) AS total_loan_out'),
             db.raw('COUNT(*) AS new_loans_count'),
           )
+          .whereNull('merged_from')
           .whereBetween('issued_date', [monthStart, monthEnd])
           .first(),
         db('loans').count('id as cnt').whereBetween('closed_date', [monthStart, monthEnd]).first(),

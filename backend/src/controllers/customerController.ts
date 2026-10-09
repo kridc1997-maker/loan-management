@@ -184,6 +184,7 @@ function camelizeLoan(r: any) {
     id: r.id, loanNumber: r.loan_number,
     customerId: r.customer_id,
     parentLoanId: r.parent_loan_id ?? null,
+    mergedFrom: r.merged_from ?? null,
     isRolledOver: Boolean(r.is_rolled_over),
     totalPaidInterest: Number(r.total_paid_interest ?? 0),
     rolloverCount: Number(r.rollover_count ?? 0),

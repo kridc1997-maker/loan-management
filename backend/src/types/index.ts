@@ -16,7 +16,7 @@ export interface AuthRequest extends Request {
 
 export type RiskLevel = 'low' | 'normal' | 'high' | 'blacklist'
 export type LoanType = 'single' | 'installment' | 'flexible' | 'daily'
-export type LoanStatus = 'active' | 'completed' | 'overdue' | 'bad_debt' | 'written_off'
+export type LoanStatus = 'active' | 'completed' | 'overdue' | 'bad_debt' | 'written_off' | 'merged'
 export type InstallmentStatus = 'pending' | 'paid' | 'partial' | 'overdue' | 'skipped'
 export type PaymentType = 'normal' | 'partial' | 'rollover' | 'full' | 'bad_debt_recover'
 export type PaymentMethod = 'cash' | 'transfer' | 'other'

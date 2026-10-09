@@ -156,6 +156,17 @@ export const loanController = {
     }
   },
 
+  async mergeLoans(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { customerId, loanIds } = req.body as { customerId: number; loanIds: number[] }
+      if (!customerId || !Array.isArray(loanIds)) throw new AppError(400, 'ข้อมูลไม่ครบถ้วน')
+      const result = await loanService.mergeLoans(Number(customerId), loanIds, req.user?.userId)
+      res.json({ success: true, data: camelize(result) })
+    } catch (err) {
+      next(err)
+    }
+  },
+
   async markBadDebt(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const { reason } = req.body
@@ -220,6 +231,7 @@ function camelize(r: any) {
     id: r.id, loanNumber: r.loan_number,
     customerId: r.customer_id, customerName: r.customer_name, customerPhone: r.customer_phone,
     parentLoanId: r.parent_loan_id,
+    mergedFrom: r.merged_from ?? null,
     principalAmount: Number(r.principal_amount),
     totalAmount: Number(r.total_amount),
     interestAmount: Number(r.interest_amount ?? (Number(r.total_amount) - Number(r.principal_amount))),

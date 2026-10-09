@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle, Pencil, Link as LinkIcon } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Briefcase, FilePlus, RefreshCw, AlertTriangle, Pencil, Link as LinkIcon, Merge } from 'lucide-react'
 import StatusBadge from '../../components/ui/StatusBadge'
 import Modal from '../../components/ui/Modal'
 import LoanConfirmModal, { needsLoanConfirm } from '../../components/ui/LoanConfirmModal'
 import { formatCurrency, formatDate, isInstallmentBased } from '../../utils/financial'
-import { customerApi } from '../../api/endpoints'
+import { customerApi, loanApi } from '../../api/endpoints'
+import { useAuthStore } from '../../stores/authStore'
 import { useAppStore } from '../../stores/appStore'
 import { useLoanCreationPaused } from '../../hooks/useLoanCreationPaused'
 import type { Customer, Loan, CustomerForm } from '../../types'
@@ -54,6 +55,11 @@ export default function CustomerDetail() {
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loans, setLoans] = useState<Loan[]>([])
   const [showClosedLoans, setShowClosedLoans] = useState(false)
+  const { user: me } = useAuthStore()
+  const [reloadKey, setReloadKey] = useState(0)
+  const [showMerge, setShowMerge] = useState(false)
+  const [mergeIds, setMergeIds] = useState<number[]>([])
+  const [merging, setMerging] = useState(false)
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -136,7 +142,34 @@ export default function CustomerDetail() {
     }).catch(() => {
       setNotFound(true)
     }).finally(() => setLoading(false))
-  }, [id])
+  }, [id, reloadKey])
+
+  const mergeCandidates = loans.filter((l) => ['single', 'flexible'].includes(l.loanType) && ['active', 'overdue'].includes(l.status))
+  const remainingOf = (l: Loan) => {
+    const principal = Math.max(0, l.principalAmount - l.paidPrincipal)
+    const interest = Math.max(0, l.totalAmount - l.principalAmount - l.paidInterest)
+    return { principal, interest }
+  }
+  const mergeSummary = mergeCandidates
+    .filter((l) => mergeIds.includes(l.id))
+    .reduce((acc, l) => {
+      const r = remainingOf(l)
+      return { principal: acc.principal + r.principal, interest: acc.interest + r.interest }
+    }, { principal: 0, interest: 0 })
+
+  const handleMerge = () => {
+    if (!customer || mergeIds.length < 2 || merging) return
+    setMerging(true)
+    loanApi.merge(customer.id, mergeIds).then((res) => {
+      addToast('success', `รวมหนี้สำเร็จ สัญญาใหม่ ${res.data.data.loanNumber}`)
+      window.dispatchEvent(new Event('header-refresh'))
+      setShowMerge(false)
+      setMergeIds([])
+      setReloadKey((k) => k + 1)
+    }).catch((err) => {
+      addToast('error', err?.response?.data?.error?.message ?? 'เกิดข้อผิดพลาด ไม่สามารถรวมหนี้ได้')
+    }).finally(() => setMerging(false))
+  }
 
   if (loading) {
     return (
@@ -155,7 +188,8 @@ export default function CustomerDetail() {
     )
   }
 
-  const totalBorrowed = loans.reduce((s, l) => s + l.principalAmount, 0)
+  // loans created by debt consolidation re-use principal that was already lent — don't count it twice
+  const totalBorrowed = loans.filter((l) => !l.mergedFrom).reduce((s, l) => s + l.principalAmount, 0)
   // Daily loans: count interest only after completed; other types: count paid interest as-is
   const totalInterest = loans.reduce((s, l) => {
     if (l.loanType === 'daily' && l.status !== 'completed') return s
@@ -186,6 +220,11 @@ export default function CustomerDetail() {
             <button onClick={openEdit} className="btn-secondary">
               <Pencil size={15} /> แก้ไข
             </button>
+            {me?.role === 'admin' && mergeCandidates.length >= 2 && (
+              <button onClick={() => { setMergeIds([]); setShowMerge(true) }} className="btn-secondary">
+                <Merge size={15} /> รวมหนี้
+              </button>
+            )}
             <button onClick={() => setShowPortalModal(true)} className="btn-secondary">
               <LinkIcon size={15} /> ลิงก์ลูกค้า
             </button>
@@ -399,6 +438,45 @@ export default function CustomerDetail() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal open={showMerge} onClose={() => setShowMerge(false)} title="รวมหนี้" size="md">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            เลือกสัญญา (ครั้งเดียว/ยืดหยุ่น) ที่ต้องการรวม ระบบจะรวมยอดคงเหลือที่ยังไม่จ่าย (เงินต้น+ดอกเบี้ย) เป็นสัญญาผ่อนยืดหยุ่นใหม่ 1 สัญญา
+            และปิดสัญญาเดิมเป็น "รวมหนี้แล้ว" (ไม่มีการเคลื่อนไหวของเงินสด)
+          </p>
+          <div className="space-y-2 max-h-72 overflow-y-auto">
+            {mergeCandidates.map((l) => {
+              const r = remainingOf(l)
+              return (
+                <label key={l.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 cursor-pointer hover:bg-blue-50/30">
+                  <input
+                    type="checkbox" className="accent-blue-600 w-4 h-4"
+                    checked={mergeIds.includes(l.id)}
+                    onChange={(e) => setMergeIds((ids) => e.target.checked ? [...ids, l.id] : ids.filter((x) => x !== l.id))}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-mono text-gray-500">{l.loanNumber}</p>
+                    <p className="text-xs text-gray-500">คงเหลือ ต้น {formatCurrency(r.principal)} + ดอก {formatCurrency(r.interest)}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900">{formatCurrency(r.principal + r.interest)}</p>
+                </label>
+              )
+            })}
+          </div>
+          <div className="p-3 bg-purple-50 rounded-xl text-sm space-y-0.5">
+            <div className="flex justify-between"><span className="text-gray-600">เงินต้นรวม</span><span className="font-semibold">{formatCurrency(mergeSummary.principal)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-600">ดอกเบี้ยรวม</span><span className="font-semibold">{formatCurrency(mergeSummary.interest)}</span></div>
+            <div className="flex justify-between border-t border-purple-100 pt-1"><span className="text-gray-700">ยอดสัญญาใหม่</span><span className="font-bold text-purple-700">{formatCurrency(mergeSummary.principal + mergeSummary.interest)}</span></div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => setShowMerge(false)} className="btn-secondary flex-1 justify-center">ยกเลิก</button>
+            <button onClick={handleMerge} disabled={mergeIds.length < 2 || merging} className="btn-primary flex-1 justify-center disabled:opacity-50">
+              {merging ? 'กำลังรวม...' : `รวมหนี้ (${mergeIds.length} สัญญา)`}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal open={showPortalModal} onClose={() => setShowPortalModal(false)} title="ลิงก์สำหรับลูกค้า" size="md">

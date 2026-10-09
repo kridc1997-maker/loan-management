@@ -434,7 +434,7 @@ export default function LoanDetail() {
             <h2 className="text-lg font-bold text-gray-900">{loan.customerName}</h2>
             <p className="text-sm text-gray-400">{loan.customerPhone}</p>
           </div>
-          {overdue > 0 && loan.status !== 'completed' && (
+          {overdue > 0 && !['completed', 'merged'].includes(loan.status) && (
             <span className="text-sm font-semibold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg whitespace-nowrap">
               ค้าง {overdue} วัน
             </span>
@@ -478,7 +478,7 @@ export default function LoanDetail() {
           )}
         </div>
 
-        {loan.status !== 'completed' && (
+        {!['completed', 'merged'].includes(loan.status) && (
           <div className={`grid gap-4 pt-4 border-t border-gray-100 ${progressCols.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
             {progressCols.map((col) => (
               <div key={col.label}>

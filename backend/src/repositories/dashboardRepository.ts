@@ -50,7 +50,7 @@ export const dashboardRepo = {
         .where('due_date', '<=', today)
         .first(),
       // New loans today
-      db('loans').whereRaw("issued_date::date = ?::date", [today]).count('id as count').first(),
+      db('loans').whereNull('merged_from').whereRaw("issued_date::date = ?::date", [today]).count('id as count').first(),
       // Total received today (actual amount collected)
       db('payments').sum('amount as total').whereRaw("payment_date::date = ?::date", [today]).first(),
       // Expense/capital this month from cash_transactions
@@ -146,9 +146,9 @@ export const dashboardRepo = {
       .select(
         'l.customer_id',
         db.raw("c.first_name || ' ' || c.last_name AS customer_name"),
-        db.raw('COUNT(l.id) AS loan_count'),
+        db.raw('COUNT(l.id) FILTER (WHERE l.merged_from IS NULL) AS loan_count'),
         db.raw("COUNT(l.id) FILTER (WHERE l.status = 'completed') AS closed_loans_count"),
-        db.raw('SUM(l.principal_amount) AS total_borrowed'),
+        db.raw('SUM(l.principal_amount) FILTER (WHERE l.merged_from IS NULL) AS total_borrowed'),
         db.raw('SUM(l.paid_interest) AS total_interest_paid'),
         db.raw('SUM(l.total_amount - l.principal_amount) AS total_interest_expected'),
         db.raw(CREDIT_SCORE_SQL),
@@ -419,7 +419,7 @@ export const dashboardRepo = {
         SELECT
           COUNT(DISTINCT customer_id)::int AS total_customers,
           COUNT(DISTINCT CASE WHEN loan_count > 1 THEN customer_id END)::int AS repeat_customers
-        FROM (SELECT customer_id, COUNT(*) AS loan_count FROM loans GROUP BY customer_id) sub
+        FROM (SELECT customer_id, COUNT(*) AS loan_count FROM loans WHERE merged_from IS NULL GROUP BY customer_id) sub
       `),
       db.raw(`
         SELECT
