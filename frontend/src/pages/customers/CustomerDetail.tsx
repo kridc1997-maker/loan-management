@@ -53,6 +53,7 @@ export default function CustomerDetail() {
   const loanCreationPaused = useLoanCreationPaused()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loans, setLoans] = useState<Loan[]>([])
+  const [showClosedLoans, setShowClosedLoans] = useState(false)
   const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -268,12 +269,26 @@ export default function CustomerDetail() {
       </div>
 
       <div className="card">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">ประวัติสัญญา ({loans.length})</h2>
+        {(() => {
+          const closedCount = loans.filter((l) => !['active', 'overdue'].includes(l.status)).length
+          return (
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-900">
+                ประวัติสัญญา ({showClosedLoans ? loans.length : loans.length - closedCount})
+              </h2>
+              {closedCount > 0 && (
+                <button onClick={() => setShowClosedLoans((v) => !v)} className="btn-secondary text-xs px-3 py-1.5">
+                  {showClosedLoans ? 'ซ่อนสัญญาที่ปิดแล้ว' : `ดูสัญญาที่ปิดแล้ว (${closedCount})`}
+                </button>
+              )}
+            </div>
+          )
+        })()}
         {loans.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-8">ยังไม่มีสัญญา</p>
         ) : (
           <div className="space-y-2">
-            {loans.map((loan) => (
+            {loans.filter((l) => showClosedLoans || ['active', 'overdue'].includes(l.status)).map((loan) => (
               <div
                 key={loan.id}
                 className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:border-blue-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
