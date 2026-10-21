@@ -225,16 +225,9 @@ export const loanService = {
         newPaidPrincipal = Number(loan.paid_principal) + principalPaid
         newPaidInterest = Number(loan.paid_interest) + interestPaid
       } else {
-        const paidTotals = await trx('payments')
-          .where({ loan_id: loanId })
-          .whereNot({ payment_type: 'rollover' })
-          .select(
-            trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
-            trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
-          )
-          .first()
-        newPaidPrincipal = Number(paidTotals?.paid_principal ?? 0)
-        newPaidInterest = Number(paidTotals?.paid_interest ?? 0)
+        const paidTotals = await sumPaidSinceReset(trx, loanId)
+        newPaidPrincipal = paidTotals.principal
+        newPaidInterest = paidTotals.interest
       }
 
       // Check if all installments paid
@@ -508,72 +501,92 @@ export const loanService = {
     if (deductFirstInstallment) cashBack -= installmentAmount
     if (cashBack <= 0) throw new AppError(400, 'ยอดที่ลูกค้าจะได้รับต้องมากกว่า 0')
 
+    // Split the old remaining balance into principal/interest from the still-unpaid installment portions
+    // (pro-rated for partly-paid ones), so the interest being settled can be counted as profit.
+    const unpaid = await db('loan_installments').where({ loan_id: loanId }).whereIn('status', ['pending', 'partial', 'overdue'])
+    let unpaidInterest = 0
+    for (const i of unpaid) {
+      const due = Number(i.amount_due)
+      const left = Math.max(0, due - Number(i.paid_amount))
+      if (due > 0) unpaidInterest += Number(i.interest_portion) * (left / due)
+    }
+    const remInterest = Math.min(remaining, Math.round(unpaidInterest * 100) / 100)
+    const remPrincipal = remaining - remInterest
+
     await db.transaction(async (trx) => {
       const today = todayStr()
       const totalInstallments = Number(loan.total_installments)
       const newDueDate = addDays(today, totalInstallments - 1)
 
-      // Regenerate the installment schedule from scratch (first time this codebase deletes loan_installments —
-      // existing payments keep their row via installment_id ON DELETE SET NULL, so payment history is unaffected)
+      // Regenerate the installment schedule from scratch (existing payments keep their row via
+      // installment_id ON DELETE SET NULL, so payment history is unaffected)
       await trx('loan_installments').where({ loan_id: loanId }).del()
       const scheduleStart = addDays(today, -1)
       const schedule = buildInstallmentSchedule(scheduleStart, Number(loan.total_amount), totalInstallments, totalInstallments, Number(loan.principal_amount))
       await trx('loan_installments').insert(schedule.map((s) => ({ ...s, loan_id: loanId })))
 
-      let newPaidPrincipal = 0
-      let newPaidInterest = 0
-      let newPaidInstallments = 0
-      if (deductFirstInstallment) {
-        const first = schedule[0]
-        await trx('loan_installments')
-          .where({ loan_id: loanId, installment_no: 1 })
-          .update({ status: 'paid', paid_amount: first.amount_due, paid_date: today, updated_at: new Date() })
-        newPaidPrincipal = first.principal_portion
-        newPaidInterest = first.interest_portion
-        newPaidInstallments = 1
-      }
-
       await trx('loans').where({ id: loanId }).update({
         issued_date: today,
         due_date: newDueDate,
-        paid_principal: newPaidPrincipal,
-        paid_interest: newPaidInterest,
-        paid_installments: newPaidInstallments,
+        paid_principal: 0,
+        paid_interest: 0,
+        paid_installments: 0,
         status: 'active',
         closed_date: null,
         updated_at: new Date(),
       })
 
-      const paymentNumber = await generatePaymentNumber()
-      const [payment] = await trx('payments').insert({
-        payment_number: paymentNumber,
-        loan_id: loanId,
-        loan_type: 'daily',
-        amount: cashBack,
-        principal_paid: 0,
-        interest_paid: 0,
-        over_payment: 0,
-        payment_date: today,
-        payment_type: 'balance_reset',
-        payment_method: 'cash',
-        note: note ?? (deductFirstInstallment ? 'รียอด (หักงวดแรก)' : 'รียอด'),
-        created_by: createdBy,
-      }).returning('*')
+      // generate* helpers read outside this transaction, so number rows ourselves
+      const bump = (num: string, k: number) => num.replace(/(\d+)$/, (m) => String(Number(m) + k).padStart(m.length, '0'))
+      const basePay = await generatePaymentNumber()
+      const baseTxn = await generateTxnNumber()
+      let payK = 0
+      let txnK = 0
+      let balance = await getCurrentBalance(trx)
+      const addTxn = async (type: string, direction: 'in' | 'out', amount: number, paymentId: number | null, description: string) => {
+        balance = direction === 'in' ? balance + amount : balance - amount
+        await trx('cash_transactions').insert({
+          txn_number: bump(baseTxn, txnK++), txn_type: type, direction, amount, balance_after: balance,
+          loan_id: loanId, payment_id: paymentId, description, txn_date: today, created_by: createdBy,
+        })
+      }
 
-      const currentBalance = await getCurrentBalance(trx)
-      const txnNumber = await generateTxnNumber()
-      await trx('cash_transactions').insert({
-        txn_number: txnNumber,
-        txn_type: 'loan_out',
-        direction: 'out',
-        amount: cashBack,
-        balance_after: currentBalance - cashBack,
-        loan_id: loanId,
-        payment_id: payment.id,
-        description: `รียอด ${loan.loan_number}`,
-        txn_date: today,
-        created_by: createdBy,
-      })
+      // 1) Settle the old remaining balance (this row is also the reset marker: only payments made
+      //    after it count toward the new schedule)
+      const [settle] = await trx('payments').insert({
+        payment_number: bump(basePay, payK++), loan_id: loanId, loan_type: 'daily',
+        amount: remaining, principal_paid: remPrincipal, interest_paid: remInterest, over_payment: 0,
+        payment_date: today, payment_type: 'balance_reset', payment_method: 'cash',
+        note: note ?? 'รียอด (ชำระยอดคงเหลือเดิม)', created_by: createdBy,
+      }).returning('*')
+      if (remaining > 0) await addTxn(remPrincipal > 0 ? 'principal_in' : 'interest_in', 'in', remaining, settle.id, `รียอด ${loan.loan_number} ชำระยอดคงเหลือเดิม`)
+
+      // 2) Optionally take the first installment of the NEW schedule, recorded like a real payment
+      let newPaidPrincipal = 0
+      let newPaidInterest = 0
+      let newPaidInstallments = 0
+      if (deductFirstInstallment) {
+        const first = schedule[0]
+        const firstRow = await trx('loan_installments').where({ loan_id: loanId, installment_no: 1 }).first()
+        const [firstPay] = await trx('payments').insert({
+          payment_number: bump(basePay, payK++), loan_id: loanId, installment_id: firstRow.id, loan_type: 'daily',
+          amount: first.amount_due, principal_paid: first.principal_portion, interest_paid: first.interest_portion, over_payment: 0,
+          payment_date: today, payment_type: 'normal', payment_method: 'cash',
+          note: 'รียอด (หักงวดแรก)', created_by: createdBy,
+        }).returning('*')
+        await trx('loan_installments').where({ id: firstRow.id })
+          .update({ status: 'paid', paid_amount: first.amount_due, paid_date: today, updated_at: new Date() })
+        await addTxn(first.principal_portion > 0 ? 'principal_in' : 'interest_in', 'in', Number(first.amount_due), firstPay.id, `รียอด ${loan.loan_number} หักงวดแรก`)
+        newPaidPrincipal = first.principal_portion
+        newPaidInterest = first.interest_portion
+        newPaidInstallments = 1
+        await trx('loans').where({ id: loanId }).update({
+          paid_principal: newPaidPrincipal, paid_interest: newPaidInterest, paid_installments: newPaidInstallments, updated_at: new Date(),
+        })
+      }
+
+      // 3) Pay out the full principal as the new money
+      await addTxn('loan_out', 'out', Number(loan.principal_amount), settle.id, `รียอด ${loan.loan_number} จ่ายเงินต้นใหม่`)
 
       await trx('audit_logs').insert({
         user_id: createdBy,
@@ -581,7 +594,7 @@ export const loanService = {
         entity_type: 'loan',
         entity_id: loanId,
         old_data: JSON.stringify({ issued_date: loan.issued_date, due_date: loan.due_date, paid_principal: loan.paid_principal, paid_interest: loan.paid_interest, paid_installments: loan.paid_installments }),
-        new_data: JSON.stringify({ issued_date: today, due_date: newDueDate, paid_principal: newPaidPrincipal, paid_interest: newPaidInterest, paid_installments: newPaidInstallments, cash_back: cashBack, deduct_first_installment: deductFirstInstallment }),
+        new_data: JSON.stringify({ issued_date: today, due_date: newDueDate, paid_principal: newPaidPrincipal, paid_interest: newPaidInterest, paid_installments: newPaidInstallments, cash_back: cashBack, settled_principal: remPrincipal, settled_interest: remInterest, deduct_first_installment: deductFirstInstallment }),
       })
     })
 
@@ -697,6 +710,7 @@ export const loanService = {
       .where({ id: paymentId }).first()
     if (!payment) throw new AppError(404, 'ไม่พบรายการชำระ')
     if (!payment.is_today) throw new AppError(400, 'ลบได้เฉพาะรายการที่รับชำระวันนี้เท่านั้น')
+    if (String(payment.note ?? '').startsWith('รียอด')) throw new AppError(400, 'ไม่สามารถลบรายการที่เกิดจากการรียอดได้')
     if (!['normal', 'partial', 'full'].includes(payment.payment_type)) {
       throw new AppError(400, 'ไม่สามารถลบรายการประเภทนี้ได้ (ต่อดอก/รียอด/หนี้เสีย)')
     }
@@ -729,13 +743,9 @@ export const loanService = {
         newPaidPrincipal = Number(loan.paid_principal) - Number(payment.principal_paid)
         newPaidInterest = Number(loan.paid_interest) - Number(payment.interest_paid)
       } else {
-        const totals = await trx('payments').where({ loan_id: loan.id })
-          .select(
-            trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
-            trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
-          ).first()
-        newPaidPrincipal = Number(totals?.paid_principal ?? 0)
-        newPaidInterest = Number(totals?.paid_interest ?? 0)
+        const totals = await sumPaidSinceReset(trx, loan.id)
+        newPaidPrincipal = totals.principal
+        newPaidInterest = totals.interest
       }
 
       let newPaidInstallments = loan.paid_installments
@@ -766,6 +776,29 @@ export const loanService = {
       return { deleted: true }
     })
   },
+}
+
+/**
+ * Principal/interest paid against a loan's CURRENT terms, derived from payment history.
+ * Excludes rollover payments (interest already settled/reset at rollover time) and everything
+ * paid up to and including the latest balance-reset settlement (รียอด restarts the schedule from
+ * zero; a deducted first installment is recorded as a normal payment made after it).
+ */
+async function sumPaidSinceReset(trx: any, loanId: number): Promise<{ principal: number; interest: number }> {
+  const lastReset = await trx('payments').where({ loan_id: loanId, payment_type: 'balance_reset' }).max('id as id').first()
+  const resetId = Number(lastReset?.id ?? 0)
+  const totals = await trx('payments')
+    .where({ loan_id: loanId })
+    .where('id', '>', resetId)
+    .whereNot({ payment_type: 'rollover' })
+    .select(
+      trx.raw('COALESCE(SUM(principal_paid), 0) AS paid_principal'),
+      trx.raw('COALESCE(SUM(interest_paid), 0) AS paid_interest'),
+    )
+    .first()
+  const principal = Number(totals?.paid_principal ?? 0)
+  const interest = Number(totals?.paid_interest ?? 0)
+  return { principal, interest }
 }
 
 async function getCurrentBalance(trx: any): Promise<number> {
