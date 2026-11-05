@@ -253,7 +253,7 @@ export default function CashFlow() {
       </div>
 
       {/* ═══ KPI Row ═══ */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card border-l-4 border-blue-400">
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp size={16} className="text-blue-500" />

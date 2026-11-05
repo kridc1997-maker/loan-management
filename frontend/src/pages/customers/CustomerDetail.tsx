@@ -203,7 +203,7 @@ export default function CustomerDetail() {
       </button>
 
       <div className="card">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
               <span className="text-2xl font-bold text-blue-700">{customer.firstName[0]}</span>
@@ -216,7 +216,7 @@ export default function CustomerDetail() {
               <p className="text-sm text-gray-400 mt-0.5">{customer.code}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={openEdit} className="btn-secondary">
               <Pencil size={15} /> แก้ไข
             </button>

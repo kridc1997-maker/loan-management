@@ -14,17 +14,20 @@ interface AppStore {
   darkMode: boolean
   toasts: Toast[]
   toggleSidebar: () => void
+  setSidebarOpen: (open: boolean) => void
   toggleDarkMode: () => void
   addToast: (type: Toast['type'], message: string) => void
   removeToast: (id: string) => void
 }
 
 export const useAppStore = create<AppStore>((set) => ({
-  sidebarOpen: true,
+  // phones/tablets get an off-canvas drawer that starts closed; desktop keeps the full sidebar
+  sidebarOpen: typeof window === 'undefined' ? true : window.innerWidth >= 1024,
   darkMode: getInitialDark(),
   toasts: [],
 
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
   toggleDarkMode: () => set((s) => {
     const next = !s.darkMode

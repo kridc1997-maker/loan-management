@@ -220,7 +220,7 @@ export default function Dashboard() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full mh-2 mh-3">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="table-header text-left">ลูกค้า</th>
@@ -242,11 +242,12 @@ export default function Dashboard() {
                   return (
                     <tr key={item.loanId} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="table-cell">
-                        <div>
+                        <div onClick={() => setViewLoanId(item.loanId)} className="cursor-pointer sm:cursor-auto">
                           <p className="font-medium text-gray-900">{item.customerName}</p>
-                          <p className="text-xs text-gray-400 flex items-center gap-1">
+                          <p className="text-xs text-gray-400 flex items-center gap-1 max-sm:hidden">
                             <Phone size={10} /> {item.customerPhone}
                           </p>
+                          <p className="text-xs text-gray-400 sm:hidden max-sm:whitespace-normal break-all max-w-[7rem]">{item.loanNumber}</p>
                         </div>
                       </td>
                       <td className="table-cell text-gray-500">{item.loanNumber}</td>
@@ -274,7 +275,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => setViewLoanId(item.loanId)}
                             title="ดูข้อมูลสัญญา"
-                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="max-sm:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
                           >
                             <Eye size={15} />
                           </button>
@@ -313,7 +314,7 @@ export default function Dashboard() {
           />
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full mh-2 mh-3 mh-5 mh-6 mh-7 mh-8">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="table-header">ลูกค้า</th>

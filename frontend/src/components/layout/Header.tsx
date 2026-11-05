@@ -45,7 +45,7 @@ export default function Header() {
   }
 
   return (
-    <header className="flex-shrink-0 h-14 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700 flex items-center px-4 gap-4 shadow-sm z-10 w-full">
+    <header className="flex-shrink-0 h-14 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700 flex items-center px-3 sm:px-4 gap-2 sm:gap-4 shadow-sm z-10 w-full">
       <button
         onClick={toggleSidebar}
         className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
@@ -54,21 +54,21 @@ export default function Header() {
         <Menu size={20} />
       </button>
 
-      <div className="flex items-center gap-1.5 text-sm text-gray-400">
+      <div className="hidden sm:flex items-center gap-1.5 text-sm text-gray-400">
         <Calendar size={13} />
         <span>{today}</span>
       </div>
 
-      <div className="flex-1 flex items-center justify-center gap-6 select-none">
+      <div className="flex-1 min-w-0 flex items-center justify-center gap-2 sm:gap-6 select-none">
         {cashOnHand !== null && (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 border border-blue-100">
+          <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-lg bg-blue-50 border border-blue-100">
             <Wallet size={13} className="text-blue-500" />
-            <span className="text-xs text-blue-400">เงินสด</span>
+            <span className="hidden sm:inline text-xs text-blue-400">เงินสด</span>
             <span className="text-xs font-bold text-blue-700">{formatCurrency(cashOnHand)}</span>
           </div>
         )}
         {activeCount !== null && (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 border border-green-100">
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-50 border border-green-100">
             <FileText size={13} className="text-green-500" />
             <span className="text-xs font-bold text-green-700">{activeCount} สัญญา</span>
           </div>
@@ -89,7 +89,7 @@ export default function Header() {
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-slate-600"
+          className="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 pr-1.5 sm:pr-3 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors border border-transparent hover:border-gray-200 dark:hover:border-slate-600"
         >
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"

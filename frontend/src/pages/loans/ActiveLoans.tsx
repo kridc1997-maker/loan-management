@@ -62,8 +62,8 @@ export default function ActiveLoans() {
         )}
       </div>
 
-      <div className="card flex items-center gap-3 py-3">
-        <div className="relative flex-1">
+      <div className="card flex flex-wrap items-center gap-3 py-3">
+        <div className="relative flex-1 min-w-[12rem]">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             className="input pl-9"
@@ -72,7 +72,7 @@ export default function ActiveLoans() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {[
             { value: 'all', label: 'ทั้งหมด' },
             { value: 'active', label: 'Active' },
@@ -98,7 +98,7 @@ export default function ActiveLoans() {
 
       <div className="card p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full mh-4 mh-5">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="table-header">ลูกค้า</th>

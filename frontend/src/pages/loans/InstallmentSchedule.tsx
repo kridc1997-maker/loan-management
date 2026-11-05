@@ -94,7 +94,7 @@ export default function InstallmentSchedule() {
             ))}
           </div>
         </div>
-        <div className="flex gap-3 items-center">
+        <div className="flex flex-wrap gap-3 items-center">
           <span className="text-xs text-gray-500 whitespace-nowrap">ช่วงวันที่:</span>
           <input type="date" className="input text-sm w-36" value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)} />

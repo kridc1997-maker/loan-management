@@ -45,7 +45,7 @@ export default function BadDebt() {
         <p className="text-sm text-gray-500 mt-0.5">{filtered.filter(d => !d.isRecovered).length} รายที่ยังค้างอยู่</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card border-l-4 border-red-400 py-4 text-center">
           <p className="text-xl font-bold text-red-600">{formatCurrency(totalLost)}</p>
           <p className="text-xs text-gray-500 mt-0.5">สูญเสียทั้งหมด</p>

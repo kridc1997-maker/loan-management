@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FileText, CreditCard,
@@ -55,15 +56,31 @@ function getVisibleNavItems(role: string | undefined): NavItem[] {
 }
 
 export default function Sidebar() {
-  const { sidebarOpen } = useAppStore()
+  const { sidebarOpen, setSidebarOpen } = useAppStore()
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 1023px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const onChange = (e: MediaQueryListEvent) => { setIsMobile(e.matches); setSidebarOpen(!e.matches) }
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [setSidebarOpen])
+  // on a phone the drawer always shows full labels; only its open/closed state changes
+  const expanded = isMobile ? true : sidebarOpen
+  const closeOnMobile = () => { if (isMobile) setSidebarOpen(false) }
   const { user } = useAuthStore()
   const visibleNavItems = getVisibleNavItems(user?.role)
 
   return (
+    <>
+    {isMobile && sidebarOpen && (
+      <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setSidebarOpen(false)} />
+    )}
     <aside
-      className="flex-shrink-0 flex flex-col transition-all duration-300"
+      className={`flex flex-col transition-all duration-300 ${
+        isMobile ? `fixed inset-y-0 left-0 z-40 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}` : 'flex-shrink-0'
+      }`}
       style={{
-        width: sidebarOpen ? 240 : 64,
+        width: expanded ? 240 : 64,
         background: 'linear-gradient(180deg, #0A1628 0%, #0D1F45 60%, #0C1A3A 100%)',
       }}
     >
@@ -86,7 +103,7 @@ export default function Sidebar() {
           </span>
         </div>
 
-        {sidebarOpen && (
+        {expanded && (
           <div className="min-w-0 overflow-hidden">
             <p className="text-sm font-bold text-white truncate tracking-wide">Krit Friend Loan</p>
             <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>
@@ -100,7 +117,7 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-3 px-2">
         {visibleNavItems.map((item, idx) => {
           if ('divider' in item) {
-            return sidebarOpen ? (
+            return expanded ? (
               <p
                 key={idx}
                 className="px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-widest"
@@ -118,6 +135,7 @@ export default function Sidebar() {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={closeOnMobile}
               end={'end' in item ? item.end : false}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 text-sm font-medium transition-all group ${
@@ -132,7 +150,7 @@ export default function Sidebar() {
                     className="flex-shrink-0 transition-colors"
                     style={{ color: isActive ? '#fff' : 'rgba(255,255,255,0.45)' }}
                   />
-                  {sidebarOpen && (
+                  {expanded && (
                     <>
                       <span
                         className="flex-1 truncate"
@@ -153,7 +171,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      {sidebarOpen && (
+      {expanded && (
         <div
           className="px-4 py-3 border-t"
           style={{ borderColor: 'rgba(255,255,255,0.08)' }}
@@ -164,5 +182,6 @@ export default function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   )
 }

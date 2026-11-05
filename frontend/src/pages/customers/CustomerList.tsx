@@ -184,7 +184,7 @@ export default function CustomerList() {
 
       <div className="card p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full mh-3 mh-5 mh-6 mh-7">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="table-header">ลูกค้า</th>

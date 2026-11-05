@@ -50,7 +50,7 @@ export default function OverdueLoans() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: '1–7 วัน', count: filtered.filter(l => l.overdueDays <= 7).length, color: 'yellow' },
           { label: '8–30 วัน', count: filtered.filter(l => l.overdueDays > 7 && l.overdueDays <= 30).length, color: 'orange' },
@@ -74,7 +74,7 @@ export default function OverdueLoans() {
 
       <div className="card p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full mh-5">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="table-header">ลูกค้า</th>

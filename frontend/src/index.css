@@ -27,7 +27,7 @@
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5;
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5;
   }
 
   /* KFL Blue primary button */
@@ -89,13 +89,13 @@
   }
 
   .table-header {
-    @apply text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 py-3;
+    @apply text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-2.5 sm:px-4 sm:py-3 whitespace-nowrap;
   }
   .table-cell {
-    @apply px-4 py-3 text-sm text-gray-900;
+    @apply px-2 py-2.5 sm:px-4 sm:py-3 text-sm text-gray-900 max-sm:whitespace-nowrap;
   }
   .kpi-card {
-    @apply bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow;
+    @apply bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow;
   }
 }
 
@@ -220,3 +220,14 @@
 /* Shadows */
 .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
 .dark .shadow-xl { box-shadow: 0 20px 25px rgba(0,0,0,0.5); }
+
+/* Phones: let tables drop low-priority columns (add class mh-N to a <table> to hide its Nth column below 640px) */
+@media (max-width: 639px) {
+  table.mh-2 :is(th, td):nth-child(2),
+  table.mh-3 :is(th, td):nth-child(3),
+  table.mh-4 :is(th, td):nth-child(4),
+  table.mh-5 :is(th, td):nth-child(5),
+  table.mh-6 :is(th, td):nth-child(6),
+  table.mh-7 :is(th, td):nth-child(7),
+  table.mh-8 :is(th, td):nth-child(8) { display: none; }
+}
