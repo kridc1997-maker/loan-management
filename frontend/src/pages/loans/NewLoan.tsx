@@ -175,14 +175,14 @@ export default function NewLoan() {
 
         <div>
           <label className="label">ประเภทการชำระ</label>
-          <div className="flex gap-3 flex-wrap">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               { value: 'single',      label: 'ครั้งเดียว',    desc: 'จ่ายครบรวดเดียว' },
               { value: 'installment', label: 'แบ่งงวด',       desc: 'จ่ายตามตาราง' },
               { value: 'daily',       label: 'รายวัน',        desc: 'จ่ายวันละยอดที่กำหนด' },
               { value: 'flexible',    label: 'ผ่อนยืดหยุ่น', desc: 'จ่ายเมื่อไร ยอดเท่าไรก็ได้' },
             ].map((opt) => (
-              <label key={opt.value} className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer transition-all ${loanType === opt.value ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}`}>
+              <label key={opt.value} className={`min-w-0 flex items-start gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition-all ${loanType === opt.value ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}`}>
                 <input type="radio" name="loanType" value={opt.value} checked={loanType === opt.value}
                   onChange={() => {
                     setLoanType(opt.value as LoanType)
@@ -192,7 +192,7 @@ export default function NewLoan() {
                     else if (opt.value !== 'flexible') setDurationDays(7)
                     if (opt.value === 'daily') setDailyAmount('')
                   }}
-                  className="accent-blue-600" />
+                  className="accent-blue-600 mt-1" />
                 <div>
                   <p className="text-sm font-medium text-gray-800">{opt.label}</p>
                   <p className="text-xs text-gray-400">{opt.desc}</p>
@@ -235,7 +235,7 @@ export default function NewLoan() {
         </label>
 
         {Number(principal) > 0 && Number(totalAmount) > Number(principal) && (
-          <div className="flex gap-4 p-3 bg-green-50 rounded-xl text-sm">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 p-3 bg-green-50 rounded-xl text-sm">
             {interestMode === 'percent' && (
               <div>
                 <p className="text-xs text-gray-500">ยอดที่ต้องชำระ</p>
@@ -253,7 +253,7 @@ export default function NewLoan() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">วันที่ปล่อยกู้</label>
             <input type="date" className="input" value={issuedDate}
@@ -305,7 +305,7 @@ export default function NewLoan() {
             </div>
 
             {Number(dailyAmount) > 0 && Number(totalAmount) > 0 && (
-              <div className="flex gap-4 p-3 bg-orange-50 rounded-xl text-sm">
+              <div className="flex flex-wrap gap-x-4 gap-y-2 p-3 bg-orange-50 rounded-xl text-sm">
                 <div>
                   <p className="text-xs text-gray-500">จำนวนวัน</p>
                   <p className="font-bold text-orange-700">{dailyCount} วัน</p>
