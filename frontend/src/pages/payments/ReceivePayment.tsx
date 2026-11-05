@@ -238,9 +238,9 @@ export default function ReceivePayment() {
         <h2 className="text-sm font-semibold text-gray-900">ค้นหาสัญญา</h2>
         {selectedLoan ? (
           <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-gray-900">{selectedLoan.customerName}</p>
                   <StatusBadge status={selectedLoan.status} />
                   {overdueCount > 0 && (
@@ -251,7 +251,7 @@ export default function ReceivePayment() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">{selectedLoan.loanNumber} · {selectedLoan.customerPhone}</p>
               </div>
-              <div className="flex gap-2 items-center flex-wrap justify-end">
+              <div className="flex gap-x-4 gap-y-2 items-center flex-wrap sm:justify-end">
                 <button
                   onClick={() => { setExtendDueDate(selectedLoan.dueDate); setShowDueDateModal(true) }}
                   className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-800 font-medium"
@@ -270,7 +270,7 @@ export default function ReceivePayment() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
               <div>
                 <p className="text-xs text-gray-500">เงินต้น</p>
                 <p className="font-semibold text-gray-900">{formatCurrency(selectedLoan.principalAmount)}</p>
@@ -337,7 +337,7 @@ export default function ReceivePayment() {
                   <div
                     key={l.id}
                     className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 cursor-pointer"
-                    onClick={() => { setSelectedLoan(l); setSearch(''); setSearchResults([]) }}
+                    onClick={() => { setSelectedLoan(l); setPaymentType(DEFAULT_TYPE_BY_LOAN[l.loanType] ?? 'normal'); setSearch(''); setSearchResults([]) }}
                   >
                     <div>
                       <p className="text-sm font-medium text-gray-900">{l.customerName}</p>
@@ -449,7 +449,7 @@ export default function ReceivePayment() {
 
           <div>
             <label className="label">ประเภทการชำระ</label>
-            <div className="grid grid-cols-2 gap-2 mt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
               {activePaymentOptions.map((opt) => (
                 <label
                   key={opt.value}
@@ -499,11 +499,11 @@ export default function ReceivePayment() {
           {/* single+partial: explicit principal/interest split */}
           {isSinglePartial && (
             <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <p className="text-xs font-semibold text-blue-800">ระบุยอดที่จ่ายในครั้งนี้</p>
                 <p className="text-xs text-blue-600">เงินต้นคงค้าง {formatCurrency(remainingPrincipal)} · ดอกคงค้าง {formatCurrency(remainingInterest)}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="label">ยอดต้นที่จ่าย (฿)</label>
                   <input
@@ -556,7 +556,7 @@ export default function ReceivePayment() {
 
           {/* normal amount field — hidden for single+partial */}
           {!isSinglePartial && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="label">ยอดชำระสัญญา (ต้น+ดอก) (฿) *</label>
                 <input
