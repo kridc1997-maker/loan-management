@@ -329,7 +329,7 @@ export default function ExecutiveDashboard() {
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">กำไรวันนี้</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(kpi.profitToday)}</p>
+                <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900 break-words">{formatCurrency(kpi.profitToday)}</p>
                 <p className="mt-0.5 text-xs text-gray-500">รับมาทั้งหมด {formatCurrency(kpi.receivedToday)}</p>
                 {kpi.netExpenseToday !== 0 && (
                   <p className="mt-0.5 text-xs font-medium text-red-500">
@@ -340,7 +340,7 @@ export default function ExecutiveDashboard() {
                   (กำไรสุทธิวันนี้ {formatCurrency(kpi.profitToday - kpi.netExpenseToday + kpi.capitalInToday)})
                 </p>
               </div>
-              <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-green-50">
+              <div className="hidden sm:flex flex-shrink-0 ml-4 w-10 h-10 rounded-lg items-center justify-center bg-green-50">
                 <TrendingUp size={18} className="text-green-600" />
               </div>
             </div>
@@ -356,7 +356,7 @@ export default function ExecutiveDashboard() {
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">กำไรสัปดาห์นี้</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(kpi.profitThisWeek)}</p>
+                <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900 break-words">{formatCurrency(kpi.profitThisWeek)}</p>
                 {kpi.netExpenseThisWeek !== 0 && (
                   <p className="mt-0.5 text-xs font-medium text-red-500">
                     −{formatCurrency(Math.abs(kpi.netExpenseThisWeek))} ค่าใช้จ่ายรวมสัปดาห์นี้
@@ -366,7 +366,7 @@ export default function ExecutiveDashboard() {
                   (กำไรสุทธิอาทิตย์นี้ {formatCurrency(kpi.profitThisWeek - kpi.netExpenseThisWeek + kpi.capitalInThisWeek)})
                 </p>
               </div>
-              <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-teal-50">
+              <div className="hidden sm:flex flex-shrink-0 ml-4 w-10 h-10 rounded-lg items-center justify-center bg-teal-50">
                 <TrendingUp size={18} className="text-teal-600" />
               </div>
             </div>
@@ -382,7 +382,7 @@ export default function ExecutiveDashboard() {
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">กำไรเดือนนี้</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{formatCurrency(kpi.profitThisMonth)}</p>
+                <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900 break-words">{formatCurrency(kpi.profitThisMonth)}</p>
                 {kpi.netExpense !== 0 && (
                   <p className="mt-0.5 text-xs font-medium text-red-500">
                     −{formatCurrency(Math.abs(kpi.netExpense))} ค่าใช้จ่ายรวม
@@ -392,7 +392,7 @@ export default function ExecutiveDashboard() {
                   (กำไรสุทธิ {formatCurrency(kpi.profitThisMonth - kpi.netExpense + kpi.capitalInThisMonth)})
                 </p>
               </div>
-              <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-50">
+              <div className="hidden sm:flex flex-shrink-0 ml-4 w-10 h-10 rounded-lg items-center justify-center bg-emerald-50">
                 <TrendingUp size={18} className="text-emerald-600" />
               </div>
             </div>
@@ -462,10 +462,10 @@ export default function ExecutiveDashboard() {
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cash Utilization</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{kpi.cashUtilization.toFixed(1)}%</p>
+                <p className="mt-1 text-xl sm:text-2xl font-bold text-gray-900 break-words">{kpi.cashUtilization.toFixed(1)}%</p>
                 <p className="mt-0.5 text-xs text-gray-500">เงินต้นคงค้าง / สินทรัพย์รวม</p>
               </div>
-              <div className="flex-shrink-0 ml-4 w-10 h-10 rounded-lg flex items-center justify-center bg-violet-50">
+              <div className="hidden sm:flex flex-shrink-0 ml-4 w-10 h-10 rounded-lg items-center justify-center bg-violet-50">
                 <Activity size={18} className="text-violet-600" />
               </div>
             </div>

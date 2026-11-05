@@ -46,7 +46,7 @@ export default function ReceivePayment() {
   const [paymentType, setPaymentType] = useState<PaymentType>('normal')
   const [amount, setAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(todayInputDate())
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('transfer')
   const [note, setNote] = useState('')
   const [fineAmount, setFineAmount] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
