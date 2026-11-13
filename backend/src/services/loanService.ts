@@ -491,9 +491,6 @@ export const loanService = {
     if (!loan) throw new AppError(404, 'ไม่พบสัญญา')
     if (loan.loan_type !== 'daily') throw new AppError(400, 'ใช้ได้เฉพาะสินเชื่อรายวันเท่านั้น')
     if (!['active', 'overdue'].includes(loan.status)) throw new AppError(400, 'ไม่สามารถรียอดสัญญาที่ปิดแล้วได้')
-    if (Number(loan.paid_installments) < Number(loan.total_installments) / 2) {
-      throw new AppError(400, 'ต้องชำระอย่างน้อยครึ่งหนึ่งของจำนวนงวดก่อนจึงจะรียอดได้')
-    }
 
     const installmentAmount = Number(loan.installment_amount)
     const remaining = Math.max(0, Number(loan.total_amount) - installmentAmount * Number(loan.paid_installments))

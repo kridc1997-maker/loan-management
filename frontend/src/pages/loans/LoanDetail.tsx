@@ -167,10 +167,9 @@ export default function LoanDetail() {
     ]
   })()
 
-  // "รียอด" (balance reset) — daily loans only, once at least half the installments are paid
+  // "รียอด" (balance reset) — daily loans only (the payout must still be > 0, enforced in the confirm modal and backend)
   const canReset = loan.loanType === 'daily'
     && ['active', 'overdue'].includes(loan.status)
-    && loan.paidInstallments >= loan.totalInstallments / 2
   const resetRemaining = Math.max(0, Number(loan.totalAmount) - (loan.installmentAmount ?? 0) * loan.paidInstallments)
   const resetCashBackRaw = Number(loan.principalAmount) - resetRemaining
   const resetCashBack = deductFirstInstallment ? resetCashBackRaw - (loan.installmentAmount ?? 0) : resetCashBackRaw
